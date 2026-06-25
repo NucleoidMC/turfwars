@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "xyz.uninenville.turfwars.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "BowItemMixin",
+    "ItemEntityAccessor",
+    "LivingEntityMixin",
+    "PersistentProjectileEntityAccessor",
+    "PlayerEntityMixin",
+    "ProjectileEntityMixin",
+    "RangedWeaponItemMixin",
+    "plasmid.GameWaitingLobbyAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

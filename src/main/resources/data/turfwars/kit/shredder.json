@@ -1,0 +1,51 @@
+{
+  "id": "shredder",
+  "icon": {
+    "id": "bow"
+  },
+  "equipment": {
+    "chest": {
+      "id": "leather_chestplate",
+      "components": {
+        "minecraft:unbreakable": {},
+        "turfwars:apply_team_color": {}
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "bow",
+      "components": {
+        "turfwars:barrage_ability": {
+          "charge_time": 8,
+          "projectile_limit": 5,
+          "shot_spread": 3.0
+        },
+        "minecraft:unbreakable": {}
+      }
+    }
+  ],
+  "timed_items": [
+    {
+      "item": {
+        "id": "white_wool",
+        "components": {
+          "turfwars:apply_team_color": {}
+        }
+      },
+      "time": 20,
+      "threshold_amount": 5
+    },
+    {
+      "item": {
+        "id": "arrow",
+        "components": {
+          "turfwars:projectile_damage_override": 10,
+          "turfwars:fletching_projectile": {}
+        }
+      },
+      "time": 40,
+      "threshold_amount": 2
+    }
+  ]
+}

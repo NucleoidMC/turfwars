@@ -1,0 +1,90 @@
+{
+  "id": "infiltrator",
+  "icon": {
+    "id": "iron_sword"
+  },
+  "equipment": {
+    "chest": {
+      "id": "leather_chestplate",
+      "components": {
+        "minecraft:unbreakable": {},
+        "turfwars:apply_team_color": {}
+      }
+    },
+    "feet": {
+      "id": "leather_boots",
+      "components": {
+        "minecraft:unbreakable": {},
+        "turfwars:apply_team_color": {}
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "iron_sword",
+      "components": {
+        "minecraft:unbreakable": {}
+      }
+    },
+    {
+      "id": "bow",
+      "components": {
+        "minecraft:unbreakable": {}
+      }
+    }
+  ],
+  "timed_items": [
+    {
+      "item": {
+        "id": "white_wool",
+        "components": {
+          "turfwars:apply_team_color": {}
+        }
+      },
+      "time": 20,
+      "threshold_amount": 5
+    },
+    {
+      "item": {
+        "id": "arrow",
+        "components": {
+          "turfwars:projectile_damage_override": 30,
+          "turfwars:fletching_projectile": {}
+        }
+      },
+      "time": 160,
+      "threshold_amount": 1
+    }
+  ],
+  "timed_effects": [
+    {
+      "status_effect": {
+        "id": "slowness",
+        "duration": -1,
+        "amplifier": 0
+      },
+      "initial_time": 200,
+      "region_marker": [ "{team_opposite}_area", "{team_opposite}_spawn_area" ]
+    },
+    {
+      "status_effect": {
+        "id": "slowness",
+        "duration": -1,
+        "amplifier": 1
+      },
+      "initial_time": 400,
+      "region_marker": [ "{team_opposite}_area", "{team_opposite}_spawn_area" ]
+    },
+    {
+      "status_effect": {
+        "id": "slowness",
+        "duration": -1,
+        "amplifier": 2
+      },
+      "initial_time": 600,
+      "region_marker": [ "{team_opposite}_area", "{team_opposite}_spawn_area" ]
+    }
+  ],
+  "can_enter_enemy_turf": true,
+  "can_break_enemy_forts": true
+}

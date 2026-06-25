@@ -1,0 +1,16 @@
+{
+  "type": "turfwars:turfwars",
+  "name": "Turf Wars",
+  "players": {
+    "min": 1,
+    "max": 16,
+    "threshold": 1,
+    "countdown": {
+      "ready_seconds": 15,
+      "full_seconds": 15
+    }
+  },
+  "maps": [
+    "turfwars:clouds"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "turfwars",
+  "version": "${version}",
+  "name": "Turf Wars",
+  "description": "Turf Wars is a team-based game where players must build fortresses on their own turf and kill enemies to conquer their turf. First team to conquer all of enemy turf wins.",
+  "authors": [
+    "UninenVille"
+  ],
+  "contributors": [],
+  "contact": {
+    "homepage": "https://modrinth.com/project/turfwars",
+    "sources": "https://github.com/UninenVille/turfwars",
+    "issues": "https://github.com/UninenVille/turfwars/issues"
+  },
+  "license": "LGPLv3",
+  "icon": "assets/turfwars/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "xyz.uninenville.turfwars.TurfWars"
+    ]
+  },
+  "mixins": [
+    "turfwars.mixins.json"
+  ],
+  "depends": {
+    "minecraft": ">=1.21.8",
+    "fabricloader": "*",
+    "fabric": "*"
+  }
+}

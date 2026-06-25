@@ -1,0 +1,46 @@
+{
+  "id": "marksman",
+  "icon": {
+    "id": "bow"
+  },
+  "equipment": {
+    "chest": {
+      "id": "leather_chestplate",
+      "components": {
+        "minecraft:unbreakable": {},
+        "turfwars:apply_team_color": {}
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "bow",
+      "components": {
+        "minecraft:unbreakable": {}
+      }
+    }
+  ],
+  "timed_items": [
+    {
+      "item": {
+        "id": "white_wool",
+        "components": {
+          "turfwars:apply_team_color": {}
+        }
+      },
+      "time": 20,
+      "threshold_amount": 5
+    },
+    {
+      "item": {
+        "id": "arrow",
+        "components": {
+          "turfwars:projectile_damage_override": 30,
+          "turfwars:fletching_projectile": {}
+        }
+      },
+      "time": 40,
+      "threshold_amount": 2
+    }
+  ]
+}

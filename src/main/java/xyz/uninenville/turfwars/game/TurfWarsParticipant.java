@@ -84,7 +84,7 @@ public class TurfWarsParticipant {
                         Math.sin(yawRad) * horizontal, Math.sin(pitchRad), -Math.cos(yawRad) * horizontal
                     ).multiply(1.5));
                     player.networkHandler.sendPacket(new EntityVelocityUpdateS2CPacket(player));
-                    player.velocityModified = true;
+                    player.velocityDirty = true;
                 }
             } else if (gamePhase.isGameStartPhase() || deathTime + game.config.game().respawnDelay() + 1 <= game.gameSpace.getTime()) {
                 spawn();

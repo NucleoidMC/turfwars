@@ -12,7 +12,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameMode;
-import net.minecraft.world.GameRules;
+import net.minecraft.world.rule.GameRules;
 import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.*;
@@ -63,8 +63,8 @@ public class TurfWarsWaiting {
         var worldConfig = new RuntimeWorldConfig()
             .setDimensionType(Fantasy.DEFAULT_DIM_TYPE)
             .setGenerator(lobbyMap.asGenerator(context.server()))
-            .setGameRule(GameRules.NATURAL_REGENERATION, false)
-            .setGameRule(GameRules.DO_DAYLIGHT_CYCLE, false);
+            .setGameRule(GameRules.NATURAL_HEALTH_REGENERATION, false)
+            .setGameRule(GameRules.ADVANCE_TIME, false);
 
         return context.openWithWorld(worldConfig, (activity, world) -> {
             TurfWarsWaiting waiting = new TurfWarsWaiting(activity, config, lobbyMap, world);
@@ -85,8 +85,8 @@ public class TurfWarsWaiting {
             var worldConfig = new RuntimeWorldConfig()
                 .setDimensionType(Fantasy.DEFAULT_DIM_TYPE)
                 .setGenerator(map.asGenerator(gameSpace.getServer()))
-                .setGameRule(GameRules.NATURAL_REGENERATION, false)
-                .setGameRule(GameRules.DO_DAYLIGHT_CYCLE, false);
+                .setGameRule(GameRules.NATURAL_HEALTH_REGENERATION, false)
+                .setGameRule(GameRules.ADVANCE_TIME, false);
 
             this.world = gameSpace.getWorlds().add(worldConfig);
         }

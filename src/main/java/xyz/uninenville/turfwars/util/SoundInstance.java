@@ -2,7 +2,9 @@ package xyz.uninenville.turfwars.util;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvent;
@@ -41,11 +43,19 @@ public record SoundInstance(
         return new SoundInstance(sound(), category(), volume(), pitch);
     }
 
+    public RegistryEntry<SoundEvent> getSound() {
+        return Registries.SOUND_EVENT.getEntry(sound);
+    }
+
     public SoundCategory getCategory() {
-        return SoundCategory.valueOf(category);
+        try {
+            return SoundCategory.valueOf(category);
+        } catch (IllegalArgumentException ignored) {
+            return SoundCategory.MASTER;
+        }
     }
 
     public void playSound(ServerPlayerEntity player) {
-        player.playSoundToPlayer(sound, getCategory(), volume, pitch);
+        player.networkHandler.sendPacket(new PlaySoundS2CPacket(getSound(), getCategory(), player.getX(), player.getY(), player.getZ(), volume, pitch, player.getEntityWorld().getRandom().nextLong()));
     }
 }

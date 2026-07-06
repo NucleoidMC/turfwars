@@ -31,7 +31,7 @@ public class ModComponents {
     public static final ComponentType<Integer> BARRAGE_PROJECTILES_LOADED = Registry.register(
         Registries.DATA_COMPONENT_TYPE,
         TurfWars.id("barrage_projectiles_loaded"),
-        ComponentType.<Integer>builder().codec(Codecs.NON_NEGATIVE_INT).build()
+        ComponentType.<Integer>builder().codec(Codecs.NON_NEGATIVE_INT).skipsHandAnimation().build()
     );
 
     public static final ComponentType<Unit> FLETCHING_PROJECTILE = Registry.register(

@@ -30,13 +30,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import org.jetbrains.annotations.Nullable;
-import xyz.uninenville.turfwars.TurfWars;
-import xyz.uninenville.turfwars.attachment.ModAttachments;
-import xyz.uninenville.turfwars.config.TurfWarsConfig;
-import xyz.uninenville.turfwars.map.TurfWarsMap;
-import xyz.uninenville.turfwars.mixin.ItemEntityAccessor;
-import xyz.uninenville.turfwars.mixin.PersistentProjectileEntityAccessor;
-import xyz.uninenville.turfwars.util.ColoredBlockUtil;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameResult;
@@ -66,6 +59,13 @@ import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.projectile.ArrowFireEvent;
 import xyz.nucleoid.stimuli.event.projectile.ProjectileHitEvent;
+import xyz.uninenville.turfwars.TurfWars;
+import xyz.uninenville.turfwars.attachment.ModAttachments;
+import xyz.uninenville.turfwars.config.TurfWarsConfig;
+import xyz.uninenville.turfwars.map.TurfWarsMap;
+import xyz.uninenville.turfwars.mixin.ItemEntityAccessor;
+import xyz.uninenville.turfwars.mixin.PersistentProjectileEntityAccessor;
+import xyz.uninenville.turfwars.util.ColoredBlockUtil;
 
 import java.util.List;
 import java.util.Set;
@@ -89,6 +89,7 @@ public class TurfWarsGame {
     private long phaseStartTime;
     private long phaseDuration;
     private int linesPerKill = 0;
+
     public TurfWarsGame(GameActivity activity, TurfWarsConfig config, TurfWarsMap map, ServerWorld world, Multimap<GameTeamKey, ServerPlayerEntity> teamPrefrences, GameTeamList teams) {
         this.gameSpace = activity.getGameSpace();
         this.config = config;
@@ -226,9 +227,7 @@ public class TurfWarsGame {
         }
 
         // Tick players
-        for (PlayerRef ref : participants.keySet()) {
-            ref.ifOnline(gameSpace, player -> getParticipant(player).tick());
-        }
+        participants.values().forEach(TurfWarsParticipant::tick);
 
         // Tick spectators
         for (ServerPlayerEntity player : gameSpace.getPlayers().spectators()) {
@@ -287,7 +286,7 @@ public class TurfWarsGame {
                 "turfwars.phase." + phase.toString().toLowerCase() + ".start",
                 phase.getName(),
                 Text.of(String.valueOf(getPhaseDuration() / 20)),
-                Text.of(String.valueOf(linesPerKill()))
+                Text.of(String.valueOf(linesPerKill))
             );
         }
 
@@ -316,10 +315,6 @@ public class TurfWarsGame {
                 participant.giveBuildBlocks(amount);
             });
         }
-    }
-
-    public int linesPerKill() {
-        return linesPerKill;
     }
 
     private ActionResult onUseBlock(ServerPlayerEntity player, Hand hand, BlockHitResult blockHitResult) {
@@ -497,7 +492,7 @@ public class TurfWarsGame {
         TurfWarsTeam team = participant.getTeam();
 
         Text message = Text.translatable("turfwars.death." + source.getName(), player.getName());
-        int turfLinesConquered = Math.min(linesPerKill(), team.getScore());
+        int turfLinesConquered = Math.min(linesPerKill, team.getScore());
 
         ServerPlayerEntity attacker = source.getAttacker() != null && source.getAttacker().isPlayer()
             ? (ServerPlayerEntity) source.getAttacker() : participant.getLastAttacker();
@@ -517,7 +512,7 @@ public class TurfWarsGame {
                 stats.increment(StatisticKeys.RANGED_KILLS, 1);
             }
 
-            message = Text.translatable("turfwars.death." + source.getName() + ".player" , attacker.getName(), player.getName());
+            message = Text.translatable("turfwars.death." + source.getName() + ".player", attacker.getName(), player.getName());
         }
 
         // Spawn death "particles"

@@ -5,12 +5,12 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
-import xyz.uninenville.turfwars.TurfWars;
-import xyz.uninenville.turfwars.game.TeamKeys;
 import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamList;
 import xyz.nucleoid.plasmid.api.game.stats.GameStatisticBundle;
+import xyz.uninenville.turfwars.TurfWars;
+import xyz.uninenville.turfwars.game.TeamKeys;
 
 import java.util.List;
 import java.util.Optional;

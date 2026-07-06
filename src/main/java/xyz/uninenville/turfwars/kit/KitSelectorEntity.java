@@ -26,7 +26,9 @@ public class KitSelectorEntity extends ArmorStandEntity {
         this.game = game;
         this.kit = kitSelector.getKit();
 
-        kit.giveKit(this, color);
+        if (kit != null) {
+            kit.giveKit(this, color);
+        }
         refreshPositionAndAngles(position, kitSelector.rotation(), 0);
         setHideBasePlate(true);
         setShowArms(true);

@@ -9,10 +9,10 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import xyz.uninenville.turfwars.game.TurfWarsPlayerDataStorage;
-import xyz.uninenville.turfwars.game.TurfWarsTeam;
 import xyz.nucleoid.codecs.MoreCodecs;
 import xyz.nucleoid.plasmid.api.util.ItemStackBuilder;
+import xyz.uninenville.turfwars.game.TurfWarsPlayerDataStorage;
+import xyz.uninenville.turfwars.game.TurfWarsTeam;
 
 import java.util.List;
 import java.util.Map;

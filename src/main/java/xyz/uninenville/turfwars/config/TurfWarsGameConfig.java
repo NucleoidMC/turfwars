@@ -17,7 +17,7 @@ public record TurfWarsGameConfig(
     boolean allowJoinAfterStart
 ) {
     public static final TurfWarsGameConfig DEFAULT = new TurfWarsGameConfig(
-        200, 200,800, 1800, 400,
+        200, 200, 800, 1800, 400,
         64, 32, 6, 0,
         true
     );

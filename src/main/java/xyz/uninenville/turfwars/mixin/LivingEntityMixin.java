@@ -23,7 +23,7 @@ public abstract class LivingEntityMixin extends Entity {
     public void applyProjectileDamageOverride(DamageSource source, float amount, CallbackInfoReturnable<Float> cir) {
         if (source.getSource() != null && source.getSource() instanceof ProjectileEntity projectile) {
             if (projectile.hasAttached(ModAttachments.PROJECTILE_DAMAGE_OVERRIDE)) {
-                cir.setReturnValue(projectile.getAttached(ModAttachments.PROJECTILE_DAMAGE_OVERRIDE));
+                cir.setReturnValue(projectile.getAttachedOrElse(ModAttachments.PROJECTILE_DAMAGE_OVERRIDE, amount));
             }
         }
     }

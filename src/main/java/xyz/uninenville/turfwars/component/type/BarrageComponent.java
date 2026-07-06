@@ -19,7 +19,8 @@ public record BarrageComponent(
     int shotInterval,
     float shotSpread,
     TextLoadingBar chargingBar,
-    ChargingSounds chargingSounds
+    ChargingSounds chargingSounds,
+    boolean damageCancelsBarrage
 ) {
     public static final Codec<BarrageComponent> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codecs.POSITIVE_INT.fieldOf("charge_time").forGetter(BarrageComponent::chargeTime),
@@ -27,7 +28,8 @@ public record BarrageComponent(
         Codecs.NON_NEGATIVE_INT.optionalFieldOf("shot_interval", 1).forGetter(BarrageComponent::shotInterval),
         Codecs.NON_NEGATIVE_FLOAT.optionalFieldOf("shot_spread", 5.0F).forGetter(BarrageComponent::shotSpread),
         TextLoadingBar.CODEC.optionalFieldOf("charging_bar", TextLoadingBar.DEFAULT).forGetter(BarrageComponent::chargingBar),
-        ChargingSounds.CODEC.optionalFieldOf("charging_sounds", ChargingSounds.DEFAULT_SOUNDS).forGetter(BarrageComponent::chargingSounds)
+        ChargingSounds.CODEC.optionalFieldOf("charging_sounds", ChargingSounds.DEFAULT_SOUNDS).forGetter(BarrageComponent::chargingSounds),
+        Codec.BOOL.optionalFieldOf("damage_cancels_barrage", true).forGetter(BarrageComponent::damageCancelsBarrage)
     ).apply(instance, BarrageComponent::new));
 
     public Text getChargingBar(int ticksUsed) {

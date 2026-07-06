@@ -17,7 +17,7 @@
   "turfwars.map.vote.success.player": "%s has voted for map %s!",
   "turfwars.map.vote.failure": "Voting failed! Unknown map id: %s",
   "turfwars.map.vote.selected": "Voting has ended! The map %s has been selected!",
-  "turfwars.phase.game_start_phase":"Game Starting",
+  "turfwars.phase.game_start_phase": "Game Starting",
   "turfwars.phase.game_start_phase.start": "\n > Turf Wars <\n- Capture enemy turf by killing enemy players.\n- First team to capture all of the enemy turf wins!\n",
   "turfwars.phase.initial_build": "Initial Build",
   "turfwars.phase.initial_build.start": "\n%2$s Seconds of Initial Build time has begun!\n",

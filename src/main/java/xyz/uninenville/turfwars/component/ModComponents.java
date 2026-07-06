@@ -12,7 +12,7 @@ import xyz.uninenville.turfwars.component.type.BarrageComponent;
 public class ModComponents {
     public static void initialize() {
         PolymerComponent.registerDataComponent(
-            APPLY_TEAM_COLOR, BARRAGE_ABILITY, FLETCHING_PROJECTILE, PROJECTILE_DAMAGE_OVERRIDE
+            APPLY_TEAM_COLOR, BARRAGE_ABILITY, BARRAGE_PROJECTILES_LOADED, FLETCHING_PROJECTILE, PROJECTILE_DAMAGE_OVERRIDE
         );
     }
 
@@ -26,6 +26,12 @@ public class ModComponents {
         Registries.DATA_COMPONENT_TYPE,
         TurfWars.id("barrage_ability"),
         ComponentType.<BarrageComponent>builder().codec(BarrageComponent.CODEC).build()
+    );
+
+    public static final ComponentType<Integer> BARRAGE_PROJECTILES_LOADED = Registry.register(
+        Registries.DATA_COMPONENT_TYPE,
+        TurfWars.id("barrage_projectiles_loaded"),
+        ComponentType.<Integer>builder().codec(Codecs.NON_NEGATIVE_INT).build()
     );
 
     public static final ComponentType<Unit> FLETCHING_PROJECTILE = Registry.register(

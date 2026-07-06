@@ -1,7 +1,7 @@
 package xyz.uninenville.turfwars.game;
 
-import xyz.uninenville.turfwars.TurfWars;
 import xyz.nucleoid.plasmid.api.game.stats.StatisticKey;
+import xyz.uninenville.turfwars.TurfWars;
 
 public class StatisticKeys {
     public static final StatisticKey<Integer> GAMES_PLAYED = StatisticKey.intKey(TurfWars.id("games_played"));

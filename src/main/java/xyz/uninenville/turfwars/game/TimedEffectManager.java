@@ -131,8 +131,8 @@ public class TimedEffectManager {
     }
 
     public static class EffectInstance {
-        int initialGiveTicks;
-        int renewalGiveTicks;
+        final int initialGiveTicks;
+        final int renewalGiveTicks;
         /**
          * If {@code ticksUntilGive} is set to -1, effect should not be given again.
          */

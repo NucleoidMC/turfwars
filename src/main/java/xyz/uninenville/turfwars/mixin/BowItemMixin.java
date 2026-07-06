@@ -1,10 +1,6 @@
 package xyz.uninenville.turfwars.mixin;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
-import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
-import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
@@ -16,29 +12,18 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import xyz.uninenville.turfwars.TurfWars;
 import xyz.uninenville.turfwars.component.ModComponents;
 import xyz.uninenville.turfwars.component.type.BarrageComponent;
 import xyz.uninenville.turfwars.util.SoundInstance;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Mixin(BowItem.class)
 public abstract class BowItemMixin extends RangedWeaponItem {
-    @Unique
-    private static final AttachmentType<Integer> BARRAGE_PROJECTILES_LOADED = AttachmentRegistry.create(
-        TurfWars.id("barrage_projectiles_loaded"), builder -> builder.initializer(() -> 0)
-    );
-    @Unique
-    private static final AttachmentType<Boolean> BARRAGE_FULLY_LOADED = AttachmentRegistry.create(
-        TurfWars.id("barrage_fully_loaded"), builder -> builder.initializer(() -> false)
-    );
 
     public BowItemMixin(Settings settings) {
         super(settings);
@@ -50,8 +35,7 @@ public abstract class BowItemMixin extends RangedWeaponItem {
             ItemStack bow = user.getStackInHand(hand);
 
             if (bow.contains(ModComponents.BARRAGE_ABILITY)) {
-                user.setAttached(BARRAGE_PROJECTILES_LOADED, 0);
-                user.setAttached(BARRAGE_FULLY_LOADED, false);
+                bow.set(ModComponents.BARRAGE_PROJECTILES_LOADED, 0);
             }
         }
     }
@@ -61,7 +45,7 @@ public abstract class BowItemMixin extends RangedWeaponItem {
         BarrageComponent barrage = stack.get(ModComponents.BARRAGE_ABILITY);
 
         if (barrage != null) {
-            int projectilesLoaded = user.getAttached(BARRAGE_PROJECTILES_LOADED);
+            int projectilesLoaded = stack.getOrDefault(ModComponents.BARRAGE_PROJECTILES_LOADED, 0);
 
             if (!world.isClient() && user instanceof ServerPlayerEntity player) {
                 int ticksUsed = stack.getMaxUseTime(player) - remainingUseTicks;
@@ -75,21 +59,23 @@ public abstract class BowItemMixin extends RangedWeaponItem {
                 ticksUsed = ticksUsed - 20 + barrage.chargeTime();
 
                 SoundInstance sound = null;
-                if (!user.getAttached(BARRAGE_FULLY_LOADED)) {
-                    if ((projectilesLoaded == 0 || ticksUsed % barrage.chargeTime() == 0) && projectilesLoaded < barrage.projectileLimit()) {
+                if (projectilesLoaded < barrage.projectileLimit()) {
+                    if ((projectilesLoaded == 0 || ticksUsed % barrage.chargeTime() == 0)) {
                         List<SoundInstance> chargeSounds = barrage.chargingSounds().getChargeSounds();
                         projectilesLoaded += 1;
 
                         if (projectilesLoaded == 1) {
+                            // Barrage starting to load
                             sound = barrage.chargingSounds().start();
+                        } else if (projectilesLoaded == barrage.projectileLimit()) {
+                            // Barrage fully loaded
+                            sound = barrage.chargingSounds().full();
                         } else if (projectilesLoaded > 1 && projectilesLoaded < barrage.projectileLimit() && !chargeSounds.isEmpty()) {
+                            // Barrage loading
                             int soundIndex = projectilesLoaded - 2;
                             int chargeSoundIndex = chargeSounds.size() > soundIndex ? soundIndex : soundIndex % chargeSounds.size();
                             sound = chargeSounds.get(chargeSoundIndex);
                         }
-                    } else if (projectilesLoaded == barrage.projectileLimit()) {
-                        user.setAttached(BARRAGE_FULLY_LOADED, true);
-                        sound = barrage.chargingSounds().full();
                     }
                 }
 
@@ -103,42 +89,9 @@ public abstract class BowItemMixin extends RangedWeaponItem {
                     player.sendMessage(barrage.getChargingBar(ticksUsed), true);
                 }
 
-                user.setAttached(BARRAGE_PROJECTILES_LOADED, projectilesLoaded);
+                stack.set(ModComponents.BARRAGE_PROJECTILES_LOADED, projectilesLoaded);
             }
         }
-    }
-
-    @WrapOperation(
-        method = "onStoppedUsing",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/item/BowItem;load(Lnet/minecraft/item/ItemStack;Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/LivingEntity;)Ljava/util/List;"
-        )
-    )
-    private List<ItemStack> loadBarrageProjectiles(ItemStack stack, ItemStack projectileStack, LivingEntity shooter, Operation<List<ItemStack>> original) {
-        BarrageComponent barrage = stack.get(ModComponents.BARRAGE_ABILITY);
-
-        if (barrage != null) {
-            int projectilesLoaded = shooter.getAttached(BARRAGE_PROJECTILES_LOADED);
-
-            if (!shooter.getEntityWorld().isClient()) {
-                if (projectilesLoaded > 1) {
-                    List<ItemStack> list = new ArrayList<>(projectilesLoaded);
-                    ItemStack itemStack = projectileStack.copy();
-
-                    for (int i = 0; i < projectilesLoaded; i++) {
-                        ItemStack itemStack2 = getProjectile(stack, i == 0 ? projectileStack : itemStack, shooter, i > 0);
-                        if (!itemStack2.isEmpty()) {
-                            list.add(itemStack2);
-                        }
-                    }
-
-                    return list;
-                }
-            }
-        }
-
-        return original.call(stack, projectileStack, shooter);
     }
 
     @Inject(
@@ -163,14 +116,18 @@ public abstract class BowItemMixin extends RangedWeaponItem {
         ),
         index = 5
     )
-    protected float modifyBarrageProjectileSpread(float original, @Local(argsOnly = true, ordinal = 0) LivingEntity shooter, @Local(argsOnly = true) ProjectileEntity projectile) {
-        BarrageComponent barrage = projectile.getWeaponStack().get(ModComponents.BARRAGE_ABILITY);
+    protected float modifyBarrageProjectileSpread(float original, @Local(argsOnly = true) ProjectileEntity projectile) {
+        ItemStack weapon = projectile.getWeaponStack();
 
-        if (barrage != null) {
-            int projectilesLoaded = shooter.getAttached(BARRAGE_PROJECTILES_LOADED);
+        if (weapon != null) {
+            BarrageComponent barrage = weapon.get(ModComponents.BARRAGE_ABILITY);
 
-            if (projectilesLoaded > 1) {
-                return barrage.shotSpread();
+            if (barrage != null) {
+                int projectilesLoaded = weapon.getOrDefault(ModComponents.BARRAGE_PROJECTILES_LOADED, 0);
+
+                if (projectilesLoaded > 1) {
+                    return barrage.shotSpread();
+                }
             }
         }
 

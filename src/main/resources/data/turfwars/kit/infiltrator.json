@@ -64,7 +64,10 @@
         "amplifier": 0
       },
       "initial_time": 200,
-      "region_marker": [ "{team_opposite}_area", "{team_opposite}_spawn_area" ]
+      "region_marker": [
+        "{team_opposite}_area",
+        "{team_opposite}_spawn_area"
+      ]
     },
     {
       "status_effect": {
@@ -73,7 +76,10 @@
         "amplifier": 1
       },
       "initial_time": 400,
-      "region_marker": [ "{team_opposite}_area", "{team_opposite}_spawn_area" ]
+      "region_marker": [
+        "{team_opposite}_area",
+        "{team_opposite}_spawn_area"
+      ]
     },
     {
       "status_effect": {
@@ -82,7 +88,10 @@
         "amplifier": 2
       },
       "initial_time": 600,
-      "region_marker": [ "{team_opposite}_area", "{team_opposite}_spawn_area" ]
+      "region_marker": [
+        "{team_opposite}_area",
+        "{team_opposite}_spawn_area"
+      ]
     }
   ],
   "can_enter_enemy_turf": true,

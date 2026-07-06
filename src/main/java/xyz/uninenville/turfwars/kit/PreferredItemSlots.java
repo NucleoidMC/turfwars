@@ -5,7 +5,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 
 public class PreferredItemSlots {
-    Int2ObjectOpenHashMap<Item> slots = new Int2ObjectOpenHashMap<>();
+    final Int2ObjectOpenHashMap<Item> slots = new Int2ObjectOpenHashMap<>();
 
     public int getSlot(Item item) {
         if (slots.containsValue(item)) {

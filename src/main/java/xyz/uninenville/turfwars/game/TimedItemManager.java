@@ -47,10 +47,10 @@ public class TimedItemManager {
         for (var playerRef : entries.keySet()) {
             playerRef.ifOnline(gameSpace, player -> {
                 for (var entry : entries.get(playerRef).entrySet()) {
-                    if (hasSpaceForItem(player, entry)) {
+                    if (hasLessThanThresholdAmount(player, entry)) {
                         entry.getValue().tick();
 
-                        if (shouldGiveItem(player, entry)) {
+                        if (shouldGiveItem(entry)) {
                             giveItem(player, entry.getKey());
                             entry.getValue().resetTicksUntilGive();
                         }
@@ -64,21 +64,18 @@ public class TimedItemManager {
         this.shouldTick = shouldTick;
     }
 
-    private boolean hasSpaceForItem(ServerPlayerEntity player, Map.Entry<TimedItem, Entry> entry) {
+    private boolean hasLessThanThresholdAmount(ServerPlayerEntity player, Map.Entry<TimedItem, Entry> entry) {
         TimedItem item = entry.getKey();
-        ItemStack stack = getItemStack(player, item);
-        int count = InventoryUtil.countItemsPlayerHas(player, stack.getItem());
-
-        return count < item.thresholdAmount();
+        return InventoryUtil.countItems(player, getItemStack(player, item)) < item.thresholdAmount();
     }
 
-    private boolean shouldGiveItem(ServerPlayerEntity player, Map.Entry<TimedItem, Entry> entry) {
+    private boolean shouldGiveItem(Map.Entry<TimedItem, Entry> entry) {
         return entry.getValue().ticksUntilGive <= 0;
     }
 
     private void giveItem(ServerPlayerEntity player, TimedItem item) {
         ItemStack stack = getItemStack(player, item);
-        int count = InventoryUtil.countItemsPlayerHas(player, stack.getItem());
+        int count = InventoryUtil.countItems(player, stack);
         int giveCount = count + stack.getCount() <= item.thresholdAmount() ? stack.getCount() : item.thresholdAmount() % count;
 
         player.giveItemStack(ItemStackBuilder.of(stack).setCount(giveCount).build());
@@ -136,7 +133,6 @@ public class TimedItemManager {
     public void removeAll(PlayerRef playerRef) {
         entries.remove(playerRef);
     }
-
 
     public static class Entry {
         private final int giveInternal;

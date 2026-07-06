@@ -12,13 +12,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
+import xyz.nucleoid.map_templates.BlockBounds;
+import xyz.nucleoid.map_templates.MapTemplate;
+import xyz.nucleoid.plasmid.api.util.PlayerPos;
 import xyz.uninenville.turfwars.game.TurfWarsGame;
 import xyz.uninenville.turfwars.kit.KitSelector;
 import xyz.uninenville.turfwars.kit.KitSelectorEntity;
 import xyz.uninenville.turfwars.kit.TimedEffect;
-import xyz.nucleoid.map_templates.BlockBounds;
-import xyz.nucleoid.map_templates.MapTemplate;
-import xyz.nucleoid.plasmid.api.util.PlayerPos;
 
 import java.util.*;
 
@@ -48,7 +48,7 @@ public class TurfWarsMap extends WaitingMap {
     private final Map<String, BlockBounds> regions = new Object2ObjectOpenHashMap<>();
     private final List<TimedEffect> timedEffects = new ArrayList<>();
     private final Set<BlockPos> spawnBarriers = new HashSet<>();
-    public List<PlayerPos> spectatorSpawns = new ArrayList<>();
+    public final List<PlayerPos> spectatorSpawns = new ArrayList<>();
     private boolean allowMovingDuringStartingPhase = false;
 
     public TurfWarsMap(MapTemplate template, Identifier mapId, boolean isLobby) {

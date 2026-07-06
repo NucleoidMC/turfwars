@@ -1,5 +1,8 @@
 package xyz.uninenville.turfwars.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.item.ItemStack;
@@ -15,17 +18,17 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import xyz.nucleoid.plasmid.api.util.Scheduler;
 import xyz.uninenville.turfwars.component.ModComponents;
 import xyz.uninenville.turfwars.component.type.BarrageComponent;
-import xyz.nucleoid.plasmid.api.util.Scheduler;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
 
-// Higher priority because Stimuli must fire ArrowFireEvent first
-@Mixin(value = RangedWeaponItem.class, priority = 1500)
+// Lower priority to allow Stimuli cancel Barrage with ArrowFireEvent
+@Mixin(value = RangedWeaponItem.class, priority = 900)
 public abstract class RangedWeaponItemMixin {
 
     @Shadow
@@ -37,35 +40,77 @@ public abstract class RangedWeaponItemMixin {
     @Shadow
     protected abstract int getWeaponStackDamage(ItemStack projectile);
 
-    @Inject(
+    @WrapOperation(
         method = "shootAll",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/entity/projectile/ProjectileEntity;spawn(Lnet/minecraft/entity/projectile/ProjectileEntity;Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/item/ItemStack;Ljava/util/function/Consumer;)Lnet/minecraft/entity/projectile/ProjectileEntity;"
-        ),
-        cancellable = true
+        )
     )
-    private void shootBarrageProjectiles(ServerWorld world, LivingEntity shooter, Hand hand, ItemStack weapon, List<ItemStack> projectiles, float speed, float divergence, boolean critical, @Nullable LivingEntity target, CallbackInfo ci) {
-        if (weapon.contains(ModComponents.BARRAGE_ABILITY)) {
-            BarrageComponent barrage = weapon.get(ModComponents.BARRAGE_ABILITY);
-            Iterator<ItemStack> iterator = projectiles.iterator();
+    private ProjectileEntity shootBarrageProjectiles(
+        ProjectileEntity projectile,
+        ServerWorld world,
+        ItemStack projectileStack,
+        Consumer<ProjectileEntity> beforeSpawn,
+        Operation<ProjectileEntity> original,
+        @Local(argsOnly = true, ordinal = 0) LivingEntity shooter,
+        @Local(argsOnly = true) Hand hand,
+        @Local(argsOnly = true) ItemStack weaponStack,
+        @Local(argsOnly = true, ordinal = 0) float speed,
+        @Local(argsOnly = true, ordinal = 1) float divergence,
+        @Local(argsOnly = true) boolean critical,
+        @Local(argsOnly = true, ordinal = 1) LivingEntity target
+    ) {
+        if (weaponStack != null) {
+            BarrageComponent barrage = weaponStack.get(ModComponents.BARRAGE_ABILITY);
+            List<ItemStack> projectiles = createBarrageProjectileStacks(weaponStack, projectileStack);
 
-            if (barrage.shotInterval() > 0) {
-                Scheduler.INSTANCE.repeatWhile(server -> {
-                    shootBarrageProjectile(world, shooter, hand, weapon, iterator.next(), speed, divergence, critical, target, barrage, projectiles);
-                }, value -> iterator.hasNext() && !weapon.shouldBreak(), 0, barrage.shotInterval());
-            } else {
-                while (iterator.hasNext()) {
-                    shootBarrageProjectile(world, shooter, hand, weapon, iterator.next(), speed, divergence, critical, target, barrage, projectiles);
+            if (barrage != null && !projectiles.isEmpty()) {
+                Iterator<ItemStack> iterator = projectiles.iterator();
+                float health = shooter.getHealth();
+
+                if (barrage.shotInterval() > 0) {
+                    Scheduler.INSTANCE.repeatWhile(server -> {
+                        shootBarrageProjectile(world, shooter, hand, weaponStack, iterator.next(), speed, divergence, critical, target, barrage, projectiles);
+                    }, value -> iterator.hasNext() && !weaponStack.shouldBreak() && shooter.isAlive() && (!barrage.damageCancelsBarrage() || shooter.getHealth() == health), 0, barrage.shotInterval());
+                } else {
+                    while (iterator.hasNext()) {
+                        shootBarrageProjectile(world, shooter, hand, weaponStack, iterator.next(), speed, divergence, critical, target, barrage, projectiles);
+                    }
                 }
-            }
 
-            ci.cancel();
+                return null;
+            }
         }
+
+        return original.call(projectile, world, projectileStack, beforeSpawn);
     }
 
     @Unique
-    private void shootBarrageProjectile(ServerWorld world, LivingEntity shooter, Hand hand, ItemStack weapon, ItemStack projectile, float speed, float divergence, boolean critical, @Nullable LivingEntity target, BarrageComponent barrage, List<ItemStack> projectiles) {
+    private List<ItemStack> createBarrageProjectileStacks(ItemStack weaponStack, ItemStack projectileStack) {
+        int projectilesLoaded = weaponStack.getOrDefault(ModComponents.BARRAGE_PROJECTILES_LOADED, 0);
+        List<ItemStack> list = new ArrayList<>(projectilesLoaded);
+        for (int i = 0; i < projectilesLoaded; i++) {
+            list.add(projectileStack.copy());
+        }
+
+        return list;
+    }
+
+    @Unique
+    private void shootBarrageProjectile(
+        ServerWorld world,
+        LivingEntity shooter,
+        Hand hand,
+        ItemStack weapon,
+        ItemStack projectile,
+        float speed,
+        float divergence,
+        boolean critical,
+        @Nullable LivingEntity target,
+        BarrageComponent barrage,
+        List<ItemStack> projectiles
+    ) {
         ProjectileEntity.spawn(
             createArrowEntity(world, shooter, weapon, projectile, critical),
             world,

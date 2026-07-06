@@ -12,6 +12,10 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import xyz.nucleoid.plasmid.api.game.GameAttachment;
+import xyz.nucleoid.plasmid.api.game.GameSpace;
+import xyz.nucleoid.plasmid.api.game.GameSpaceManager;
+import xyz.nucleoid.plasmid.api.game.GameType;
 import xyz.uninenville.turfwars.TurfWars;
 import xyz.uninenville.turfwars.config.TurfWarsConfig;
 import xyz.uninenville.turfwars.game.TurfWarsGame;
@@ -19,10 +23,6 @@ import xyz.uninenville.turfwars.game.TurfWarsPhase;
 import xyz.uninenville.turfwars.game.TurfWarsWaiting;
 import xyz.uninenville.turfwars.kit.KitRegistry;
 import xyz.uninenville.turfwars.kit.TurfWarsKit;
-import xyz.nucleoid.plasmid.api.game.GameAttachment;
-import xyz.nucleoid.plasmid.api.game.GameSpace;
-import xyz.nucleoid.plasmid.api.game.GameSpaceManager;
-import xyz.nucleoid.plasmid.api.game.GameType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,64 +46,50 @@ public class TurfWarsCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(literal("turfwars")
             .requires(TurfWarsCommand::isSourceInTurfWarsGame)
-
             .then(literal("team")
                 .requires(ServerCommandSource::isExecutedByPlayer)
-
+                .requires(TurfWarsCommand::isGameActive)
                 .then(literal("switch")
-                    .requires(TurfWarsCommand::isGameActive)
-
                     .executes(ctx -> switchTeam(ctx, ctx.getSource().getPlayerOrThrow()))
                 )
             )
-
             .then(literal("kit")
                 .requires(ServerCommandSource::isExecutedByPlayer)
-
                 .then(literal("select")
                     .requires(Permissions.require("turfwars.command.kit.select", 2))
-
                     .then(argument("id", IdentifierArgumentType.identifier())
                         .suggests((ctx, builder) -> CommandSource.suggestIdentifiers(KitRegistry.getKitIdentifiers(), builder))
                         .executes(ctx -> selectKit(ctx, IdentifierArgumentType.getIdentifier(ctx, "id")))
                     )
                 )
             )
-
             .then(literal("map")
                 .requires(TurfWarsCommand::isGameWaiting)
-
                 .then(literal("vote")
                     .requires(ServerCommandSource::isExecutedByPlayer)
                     .requires(TurfWarsCommand::canMapsBeVoted)
-
                     .then(argument("id", IdentifierArgumentType.identifier())
                         .suggests(MAP_SUGGESTION_PROVIDER)
                         .executes(ctx -> voteForMap(ctx.getSource().getPlayerOrThrow(), IdentifierArgumentType.getIdentifier(ctx, "id")))
                     )
                 )
-
                 .then(literal("select")
                     .requires(Permissions.require("turfwars.command.map.select", 2))
-
                     .then(argument("id", IdentifierArgumentType.identifier())
                         .suggests(MAP_SUGGESTION_PROVIDER)
                         .executes(ctx -> selectMap(ctx, IdentifierArgumentType.getIdentifier(ctx, "id")))
                     )
                 )
             )
-
             .then(literal("phase")
                 .requires(TurfWarsCommand::isGameActive)
                 .requires(Permissions.require("turfwars.command.phase", 2))
-
                 .then(literal("set")
                     .then(argument("phase", StringArgumentType.word())
                         .suggests((ctx, builder) -> CommandSource.suggestMatching(Arrays.stream(TurfWarsPhase.values()).map(Enum::toString), builder))
                         .executes(TurfWarsCommand::setNextPhase)
                     )
                 )
-
                 .then(literal("next")
                     .executes(TurfWarsCommand::startNextPhase)
                 )

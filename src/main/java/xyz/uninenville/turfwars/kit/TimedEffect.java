@@ -42,7 +42,9 @@ public record TimedEffect(
     public boolean equals(Object o) {
         if (this == o) {
             return true;
-        } else if (o instanceof TimedEffect(var effect1, var initialTime1, var renewalTime1, var marker1, var removeOnRegionLeave1)) {
+        } else if (o instanceof TimedEffect(
+            var effect1, var initialTime1, var renewalTime1, var marker1, var removeOnRegionLeave1
+        )) {
             return statusEffect.equals(effect1)
                 && initialTime == initialTime1
                 && renewalTime == renewalTime1

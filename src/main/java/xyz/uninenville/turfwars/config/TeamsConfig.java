@@ -2,8 +2,8 @@ package xyz.uninenville.turfwars.config;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.text.Text;
 import net.minecraft.scoreboard.AbstractTeam;
+import net.minecraft.text.Text;
 import net.minecraft.util.DyeColor;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamConfig;
 

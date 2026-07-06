@@ -13,12 +13,12 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
-import xyz.uninenville.turfwars.config.TeamsConfig;
-import xyz.uninenville.turfwars.map.TurfWarsMap;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamConfig;
 import xyz.nucleoid.plasmid.api.util.PlayerPos;
+import xyz.uninenville.turfwars.config.TeamsConfig;
+import xyz.uninenville.turfwars.map.TurfWarsMap;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -13,11 +13,6 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
-import xyz.uninenville.turfwars.TurfWars;
-import xyz.uninenville.turfwars.config.TurfWarsConfig;
-import xyz.uninenville.turfwars.map.TurfWarsMap;
-import xyz.uninenville.turfwars.map.TurfWarsMapGenerator;
-import xyz.uninenville.turfwars.mixin.plasmid.GameWaitingLobbyAccessor;
 import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.*;
@@ -30,6 +25,11 @@ import xyz.nucleoid.plasmid.api.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.api.game.player.JoinAcceptor;
 import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
 import xyz.nucleoid.plasmid.api.util.PlayerPos;
+import xyz.uninenville.turfwars.TurfWars;
+import xyz.uninenville.turfwars.config.TurfWarsConfig;
+import xyz.uninenville.turfwars.map.TurfWarsMap;
+import xyz.uninenville.turfwars.map.TurfWarsMapGenerator;
+import xyz.uninenville.turfwars.mixin.plasmid.GameWaitingLobbyAccessor;
 
 import java.util.*;
 

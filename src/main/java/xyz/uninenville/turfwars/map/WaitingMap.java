@@ -33,7 +33,7 @@ public class WaitingMap {
     public final MapTemplate template;
     public final Identifier mapId;
 
-    public List<PlayerPos> spawnPositions = new ArrayList<>();
+    public final List<PlayerPos> spawnPositions = new ArrayList<>();
 
     public WaitingMap(MapTemplate template, Identifier mapId) {
         this.template = template;

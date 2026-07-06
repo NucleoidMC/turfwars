@@ -6,8 +6,8 @@ import eu.pb4.playerdata.api.storage.PlayerDataStorage;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import xyz.uninenville.turfwars.kit.KitRegistry;
-import xyz.uninenville.turfwars.kit.TurfWarsKit;
 import xyz.uninenville.turfwars.kit.PreferredItemSlots;
+import xyz.uninenville.turfwars.kit.TurfWarsKit;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +35,7 @@ public class TurfWarsPlayerDataStorage {
 
     public static class TurfWarsPlayerData {
         public Identifier kit = null;
-        public Map<Identifier, PreferredItemSlots> preferredKitItemSlots = new HashMap<>();
+        public final Map<Identifier, PreferredItemSlots> preferredKitItemSlots = new HashMap<>();
 
         public TurfWarsKit getSelectedKit() {
             return KitRegistry.getKit(this.kit);

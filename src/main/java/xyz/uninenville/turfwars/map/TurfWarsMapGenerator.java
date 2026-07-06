@@ -1,8 +1,8 @@
 package xyz.uninenville.turfwars.map;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.MapTemplateSerializer;
 import xyz.nucleoid.plasmid.api.game.GameOpenException;
@@ -16,7 +16,7 @@ public record TurfWarsMapGenerator(Identifier mapId) {
 
             return new TurfWarsMap(template, mapId, lobby);
         } catch (IOException e) {
-            throw new GameOpenException(Text.literal(String.format("Failed to load map template %s", mapId)));
+            throw new GameOpenException(Component.literal(String.format("Failed to load map template %s", mapId)));
         }
     }
 }

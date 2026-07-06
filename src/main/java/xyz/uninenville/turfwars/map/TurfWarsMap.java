@@ -1,17 +1,17 @@
 package xyz.uninenville.turfwars.map;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import net.minecraft.block.Blocks;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.plasmid.api.util.PlayerPos;
@@ -70,12 +70,12 @@ public class TurfWarsMap extends WaitingMap {
                 setRegion(SPECTATOR_SPAWN, getRegion(SPAWN));
             }
 
-            NbtCompound data = template.getMetadata().getData();
-            this.allowMovingDuringStartingPhase = data.getBoolean(ALLOW_MOVING_DURING_STARTING_PHASE_KEY, false);
+            CompoundTag data = template.getMetadata().getData();
+            this.allowMovingDuringStartingPhase = data.getBooleanOr(ALLOW_MOVING_DURING_STARTING_PHASE_KEY, false);
 
             template.getMetadata().getRegions().forEach(region -> {
                 this.regions.put(region.getMarker(), region.getBounds());
-                NbtCompound regionData = region.getData();
+                CompoundTag regionData = region.getData();
 
                 // Load region based timed effects
                 if (regionData.contains(TIMED_EFFECTS_KEY)) {
@@ -84,16 +84,16 @@ public class TurfWarsMap extends WaitingMap {
                 }
 
                 if (region.getMarker().equals(SPECTATOR_SPAWN)) {
-                    Vec3d pos = region.getBounds().centerBottom();
-                    Vec2f rotation = getSpawnRotation(region, Vec2f.ZERO);
-                    this.spectatorSpawns.add(new PlayerPos(null, pos.getX(), pos.getY(), pos.getZ(), rotation.x, rotation.y));
+                    Vec3 pos = region.getBounds().centerBottom();
+                    Vec2 rotation = getSpawnRotation(region, Vec2.ZERO);
+                    this.spectatorSpawns.add(new PlayerPos(null, pos.x(), pos.y(), pos.z(), rotation.x, rotation.y));
                 }
             });
         }
     }
 
-    public MutableText getName() {
-        return Text.translatable(mapId.getNamespace() + ".map." + mapId.getPath());
+    public MutableComponent getName() {
+        return Component.translatable(mapId.getNamespace() + ".map." + mapId.getPath());
     }
 
     public Map<String, BlockBounds> getRegions() {
@@ -113,21 +113,21 @@ public class TurfWarsMap extends WaitingMap {
     }
 
     public PlayerPos getRandomSpectatorSpawn() {
-        return spectatorSpawns.get(Random.create().nextInt(spectatorSpawns.size()));
+        return spectatorSpawns.get(RandomSource.create().nextInt(spectatorSpawns.size()));
     }
 
     public boolean canMoveDuringStartingPhase() {
         return allowMovingDuringStartingPhase;
     }
 
-    public void placeSpawnBarriers(ServerWorld world) {
+    public void placeSpawnBarriers(ServerLevel level) {
         if (this.spawnBarriers.isEmpty()) {
             regions.forEach((marker, bounds) -> {
                 if (marker.equals(BLUE_SPAWN_AREA) || marker.equals(RED_SPAWN_AREA)) {
                     bounds.iterator().forEachRemaining(pos -> {
-                        if (world.getBlockState(pos).isOf(Blocks.STRUCTURE_VOID)) {
-                            world.setBlockState(pos, Blocks.BARRIER.getDefaultState());
-                            this.spawnBarriers.add(pos.toImmutable());
+                        if (level.getBlockState(pos).is(Blocks.STRUCTURE_VOID)) {
+                            level.setBlockAndUpdate(pos, Blocks.BARRIER.defaultBlockState());
+                            this.spawnBarriers.add(pos.immutable());
                         }
                     });
                 }
@@ -136,25 +136,25 @@ public class TurfWarsMap extends WaitingMap {
         }
 
         for (BlockPos pos : this.spawnBarriers) {
-            world.setBlockState(pos, Blocks.BARRIER.getDefaultState());
+            level.setBlockAndUpdate(pos, Blocks.BARRIER.defaultBlockState());
         }
     }
 
-    public void removeSpawnBarriers(ServerWorld world) {
+    public void removeSpawnBarriers(ServerLevel level) {
         for (BlockPos pos : this.spawnBarriers) {
-            world.removeBlock(pos, false);
+            level.removeBlock(pos, false);
         }
     }
 
-    public void spawnKitSelectorEntities(TurfWarsGame game, ServerWorld world) {
+    public void spawnKitSelectorEntities(TurfWarsGame game, ServerLevel level) {
         template.getMetadata().getRegions().forEach(region -> {
             if (region.getMarker().equals(SELECT_KIT)) {
                 KitSelector.CODEC.parse(NbtOps.INSTANCE, region.getData()).resultOrPartial(LOGGER::error).ifPresent(kitSelector -> {
                     if (kitSelector.getKit() != null) {
                         int color = template.getMetadata().getFirstRegionBounds(BLUE_SPAWN_AREA).intersects(region.getBounds())
                             ? game.getBlueTeam().getColor() : game.getRedTeam().getColor();
-                        KitSelectorEntity entity = new KitSelectorEntity(game, world, region.getBounds().centerBottom(), kitSelector, color);
-                        world.spawnEntity(entity);
+                        KitSelectorEntity entity = new KitSelectorEntity(game, level, region.getBounds().centerBottom(), kitSelector, color);
+                        level.addFreshEntity(entity);
                     }
                 });
             }

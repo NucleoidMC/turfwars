@@ -1,8 +1,8 @@
 package xyz.uninenville.turfwars.kit;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 
 public class PreferredItemSlots {
     final Int2ObjectOpenHashMap<Item> slots = new Int2ObjectOpenHashMap<>();

@@ -2,13 +2,13 @@ package xyz.uninenville.turfwars.util;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.network.packet.s2c.play.PlaySoundS2CPacket;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.dynamic.Codecs;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.ExtraCodecs;
 
 public record SoundInstance(
     SoundEvent sound,
@@ -17,21 +17,21 @@ public record SoundInstance(
     float pitch
 ) {
     public static final Codec<SoundInstance> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Registries.SOUND_EVENT.getCodec().fieldOf("sound_id").forGetter(SoundInstance::sound),
-        Codecs.NON_EMPTY_STRING.optionalFieldOf("category", SoundCategory.MASTER.toString()).forGetter(SoundInstance::category),
-        Codecs.NON_NEGATIVE_FLOAT.optionalFieldOf("volume", 1.0F).forGetter(SoundInstance::volume),
-        Codecs.NON_NEGATIVE_FLOAT.optionalFieldOf("pitch", 1.0F).forGetter(SoundInstance::pitch)
+        BuiltInRegistries.SOUND_EVENT.byNameCodec().fieldOf("sound_id").forGetter(SoundInstance::sound),
+        ExtraCodecs.NON_EMPTY_STRING.optionalFieldOf("category", SoundSource.MASTER.toString()).forGetter(SoundInstance::category),
+        ExtraCodecs.NON_NEGATIVE_FLOAT.optionalFieldOf("volume", 1.0F).forGetter(SoundInstance::volume),
+        ExtraCodecs.NON_NEGATIVE_FLOAT.optionalFieldOf("pitch", 1.0F).forGetter(SoundInstance::pitch)
     ).apply(instance, SoundInstance::new));
 
     public static SoundInstance of(SoundEvent sound) {
-        return new SoundInstance(sound, SoundCategory.MASTER.toString(), 1.0F, 1.0F);
+        return new SoundInstance(sound, SoundSource.MASTER.toString(), 1.0F, 1.0F);
     }
 
     public SoundInstance sound(SoundEvent sound) {
         return new SoundInstance(sound, category(), volume(), pitch());
     }
 
-    public SoundInstance category(SoundCategory category) {
+    public SoundInstance category(SoundSource category) {
         return new SoundInstance(sound(), category.toString(), volume(), pitch());
     }
 
@@ -43,19 +43,19 @@ public record SoundInstance(
         return new SoundInstance(sound(), category(), volume(), pitch);
     }
 
-    public RegistryEntry<SoundEvent> getSound() {
-        return Registries.SOUND_EVENT.getEntry(sound);
+    public Holder<SoundEvent> getSound() {
+        return BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound);
     }
 
-    public SoundCategory getCategory() {
+    public SoundSource getCategory() {
         try {
-            return SoundCategory.valueOf(category);
+            return SoundSource.valueOf(category);
         } catch (IllegalArgumentException ignored) {
-            return SoundCategory.MASTER;
+            return SoundSource.MASTER;
         }
     }
 
-    public void playSound(ServerPlayerEntity player) {
-        player.networkHandler.sendPacket(new PlaySoundS2CPacket(getSound(), getCategory(), player.getX(), player.getY(), player.getZ(), volume, pitch, player.getEntityWorld().getRandom().nextLong()));
+    public void playSound(ServerPlayer player) {
+        player.connection.send(new ClientboundSoundPacket(getSound(), getCategory(), player.getX(), player.getY(), player.getZ(), volume, pitch, player.level().getRandom().nextLong()));
     }
 }

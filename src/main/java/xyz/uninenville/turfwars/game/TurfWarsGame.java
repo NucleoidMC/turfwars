@@ -5,30 +5,35 @@ import eu.pb4.sidebars.api.Sidebar;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.block.*;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.item.*;
-import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.registry.tag.BlockTags;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.registry.tag.EntityTypeTags;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Language;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.item.ArrowItem;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
@@ -43,6 +48,7 @@ import xyz.nucleoid.plasmid.api.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.api.game.player.JoinAcceptor;
 import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
 import xyz.nucleoid.plasmid.api.game.player.JoinIntent;
+import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.api.game.stats.GameStatisticBundle;
 import xyz.nucleoid.plasmid.api.game.stats.StatisticMap;
@@ -64,7 +70,7 @@ import xyz.uninenville.turfwars.attachment.ModAttachments;
 import xyz.uninenville.turfwars.config.TurfWarsConfig;
 import xyz.uninenville.turfwars.map.TurfWarsMap;
 import xyz.uninenville.turfwars.mixin.ItemEntityAccessor;
-import xyz.uninenville.turfwars.mixin.PersistentProjectileEntityAccessor;
+import xyz.uninenville.turfwars.mixin.AbstractArrowAccessor;
 import xyz.uninenville.turfwars.util.ColoredBlockUtil;
 
 import java.util.List;
@@ -74,7 +80,7 @@ public class TurfWarsGame {
     public final GameSpace gameSpace;
     public final TurfWarsConfig config;
     public final TurfWarsMap map;
-    public final ServerWorld world;
+    public final ServerLevel level;
     public final TeamManager teamManager;
     public final GameStatisticBundle statistics;
     public final Sidebar sidebar;
@@ -90,22 +96,22 @@ public class TurfWarsGame {
     private long phaseDuration;
     private int linesPerKill = 0;
 
-    public TurfWarsGame(GameActivity activity, TurfWarsConfig config, TurfWarsMap map, ServerWorld world, Multimap<GameTeamKey, ServerPlayerEntity> teamPrefrences, GameTeamList teams) {
+    public TurfWarsGame(GameActivity activity, TurfWarsConfig config, TurfWarsMap map, ServerLevel level, Multimap<GameTeamKey, ServerPlayer> teamPrefrences, GameTeamList teams) {
         this.gameSpace = activity.getGameSpace();
         this.config = config;
         this.map = map;
-        this.world = world;
+        this.level = level;
         this.teamManager = TeamManager.addTo(activity);
         this.blueTeam = new TurfWarsTeam(this, teams.byKey(TeamKeys.BLUE));
         this.redTeam = new TurfWarsTeam(this, teams.byKey(TeamKeys.RED));
         this.statistics = gameSpace.getStatistics().bundle(config.statisticBundleNamespace());
-        this.sidebar = GlobalWidgets.addTo(activity).addSidebar(Text.translatable("turfwars.sidebar.title"));
+        this.sidebar = GlobalWidgets.addTo(activity).addSidebar(Component.translatable("turfwars.sidebar.title"));
         this.timedItemManager = TimedItemManager.addTo(activity, teamManager);
         this.timedEffectManager = TimedEffectManager.addTo(activity, map.getRegions());
 
         teamManager.addTeams(teams);
         for (GameTeamKey team : teamPrefrences.keySet()) {
-            for (ServerPlayerEntity player : teamPrefrences.get(team)) {
+            for (ServerPlayer player : teamPrefrences.get(team)) {
                 this.addParticipant(player, team);
             }
         }
@@ -113,9 +119,9 @@ public class TurfWarsGame {
         setPhase(TurfWarsPhase.GAME_START_PHASE);
     }
 
-    public static GameResult startGame(GameSpace gameSpace, TurfWarsConfig config, TurfWarsMap map, ServerWorld world, Multimap<GameTeamKey, ServerPlayerEntity> players, GameTeamList teams) {
+    public static GameResult startGame(GameSpace gameSpace, TurfWarsConfig config, TurfWarsMap map, ServerLevel level, Multimap<GameTeamKey, ServerPlayer> players, GameTeamList teams) {
         gameSpace.setActivity(activity -> {
-            TurfWarsGame game = new TurfWarsGame(activity, config, map, world, players, teams);
+            TurfWarsGame game = new TurfWarsGame(activity, config, map, level, players, teams);
 
             activity.allow(GameRuleType.allOf(
                 GameRuleType.PVP
@@ -129,9 +135,10 @@ public class TurfWarsGame {
             activity.listen(GameActivityEvents.DISABLE, game::disableActivity);
             activity.listen(GameActivityEvents.TICK, game::tick);
 
-            activity.listen(GamePlayerEvents.ACCEPT, game::acceptPlayer);
             activity.listen(GamePlayerEvents.ADD, game::addPlayer);
             activity.listen(GamePlayerEvents.REMOVE, game::removePlayer);
+            activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
+            activity.listen(GamePlayerEvents.ACCEPT, game::acceptPlayer);
 
             activity.listen(BlockUseEvent.EVENT, game::onUseBlock);
             activity.listen(BlockPlaceEvent.BEFORE, game::onBlockPlace);
@@ -150,7 +157,7 @@ public class TurfWarsGame {
 
     private void enableActivity() {
         gameSpace.setAttachment(TurfWars.GAME, this);
-        map.spawnKitSelectorEntities(this, world);
+        map.spawnKitSelectorEntities(this, level);
     }
 
     private void disableActivity() {
@@ -158,10 +165,10 @@ public class TurfWarsGame {
     }
 
     private JoinAcceptorResult acceptPlayer(JoinAcceptor offer) {
-        return offer.teleport(world, map.getRegion(TurfWarsMap.SPECTATOR_SPAWN).center()).thenRunForEach(this::addPlayer);
+        return offer.teleport(level, map.getRegion(TurfWarsMap.SPECTATOR_SPAWN).center()).thenRunForEach(this::addPlayer);
     }
 
-    private void addPlayer(ServerPlayerEntity player) {
+    private void addPlayer(ServerPlayer player) {
         PlayerRef playerRef = PlayerRef.of(player);
         JoinIntent intent = gameSpace.getPlayers().participants().contains(playerRef) ? JoinIntent.PLAY : JoinIntent.SPECTATE;
 
@@ -172,7 +179,7 @@ public class TurfWarsGame {
 
             getParticipant(player).spawn();
         } else {
-            player.changeGameMode(GameMode.SPECTATOR);
+            player.setGameMode(GameType.SPECTATOR);
             teamManager.removePlayer(playerRef);
             participants.remove(playerRef);
 
@@ -181,17 +188,17 @@ public class TurfWarsGame {
             }
         }
 
-        player.getEntityWorld().getServer().getCommandManager().sendCommandTree(player);
+        player.level().getServer().getCommands().sendCommands(player);
         sidebar.addPlayer(player);
     }
 
-    private void addParticipant(ServerPlayerEntity player, GameTeamKey teamKey) {
+    private void addParticipant(ServerPlayer player, GameTeamKey teamKey) {
         participants.put(PlayerRef.of(player), new TurfWarsParticipant(gameSpace, PlayerRef.of(player), teamKey.equals(TeamKeys.BLUE) ? getBlueTeam() : getRedTeam(), this));
         teamManager.addPlayerTo(player, teamKey);
     }
 
-    private void removePlayer(ServerPlayerEntity player) {
-        player.getEntityWorld().getServer().getCommandManager().sendCommandTree(player);
+    private void removePlayer(ServerPlayer player) {
+        player.level().getServer().getCommands().sendCommands(player);
         sidebar.removePlayer(player);
     }
 
@@ -214,14 +221,14 @@ public class TurfWarsGame {
             long seconds = secondsUntilPhaseEnds % 60;
 
             sidebar.set(b -> {
-                b.add(Text.translatable("turfwars.sidebar.phase", getPhase().getName(), Text.of(String.format("%02d:%02d", minutes, seconds))));
-                b.add(Text.empty());
-                b.add(Text.translatable("turfwars.sidebar.score", getBlueTeam().getName(), Text.of(String.valueOf(getBlueTeam().getScore()))));
-                b.add(Text.translatable("turfwars.sidebar.score", getRedTeam().getName(), Text.of(String.valueOf(getRedTeam().getScore()))));
+                b.add(Component.translatable("turfwars.sidebar.phase", getPhase().getName(), Component.nullToEmpty(String.format("%02d:%02d", minutes, seconds))));
+                b.add(Component.empty());
+                b.add(Component.translatable("turfwars.sidebar.score", getBlueTeam().getName(), Component.nullToEmpty(String.valueOf(getBlueTeam().getScore()))));
+                b.add(Component.translatable("turfwars.sidebar.score", getRedTeam().getName(), Component.nullToEmpty(String.valueOf(getRedTeam().getScore()))));
 
                 if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
-                    b.add(Text.empty());
-                    b.add(Text.literal("Time played: " + (gameSpace.getTime() / 20) + "s"));
+                    b.add(Component.empty());
+                    b.add(Component.literal("Time played: " + (gameSpace.getTime() / 20) + "s"));
                 }
             });
         }
@@ -230,10 +237,10 @@ public class TurfWarsGame {
         participants.values().forEach(TurfWarsParticipant::tick);
 
         // Tick spectators
-        for (ServerPlayerEntity player : gameSpace.getPlayers().spectators()) {
-            if (!map.getRegion(TurfWarsMap.PLAY_AREA).contains(player.getBlockPos())) {
+        for (ServerPlayer player : gameSpace.getPlayers().spectators()) {
+            if (!map.getRegion(TurfWarsMap.PLAY_AREA).contains(player.blockPosition())) {
                 PlayerPos pos = map.getRandomSpectatorSpawn();
-                player.teleport(world, pos.x(), pos.y(), pos.z(), Set.of(), pos.yaw(), pos.pitch(), false);
+                player.teleportTo(level, pos.x(), pos.y(), pos.z(), Set.of(), pos.yaw(), pos.pitch(), false);
             }
         }
     }
@@ -259,7 +266,7 @@ public class TurfWarsGame {
             this.linesPerKill += 1;
         }
 
-        Text message = getPhaseStartMessage();
+        Component message = getPhaseStartMessage();
         if (message != null) {
             gameSpace.getPlayers().sendMessage(getPhaseStartMessage());
         }
@@ -279,14 +286,14 @@ public class TurfWarsGame {
         };
     }
 
-    public Text getPhaseStartMessage() {
+    public Component getPhaseStartMessage() {
         String key = "turfwars.phase." + phase.toString().toLowerCase() + ".start";
-        if (Language.getInstance().hasTranslation(key)) {
-            return Text.translatable(
+        if (Language.getInstance().has(key)) {
+            return Component.translatable(
                 "turfwars.phase." + phase.toString().toLowerCase() + ".start",
                 phase.getName(),
-                Text.of(String.valueOf(getPhaseDuration() / 20)),
-                Text.of(String.valueOf(linesPerKill))
+                Component.nullToEmpty(String.valueOf(getPhaseDuration() / 20)),
+                Component.nullToEmpty(String.valueOf(linesPerKill))
             );
         }
 
@@ -294,14 +301,14 @@ public class TurfWarsGame {
     }
 
     private void onGameStart() {
-        map.placeSpawnBarriers(world);
+        map.placeSpawnBarriers(level);
         timedItemManager.setShouldTick(false);
         timedEffectManager.setShouldTick(false);
     }
 
     private void onStartBuildPhase() {
         if (phase.isInitialBuildPhase()) {
-            map.removeSpawnBarriers(world);
+            map.removeSpawnBarriers(level);
             timedItemManager.setShouldTick(true);
             timedEffectManager.setShouldTick(true);
         }
@@ -317,89 +324,89 @@ public class TurfWarsGame {
         }
     }
 
-    private ActionResult onUseBlock(ServerPlayerEntity player, Hand hand, BlockHitResult blockHitResult) {
-        BlockState block = world.getBlockState(blockHitResult.getBlockPos());
+    private InteractionResult onUseBlock(ServerPlayer player, InteractionHand hand, BlockHitResult blockHitResult) {
+        BlockState block = level.getBlockState(blockHitResult.getBlockPos());
 
         // Protect blocks that can be interacted with/changed
-        if (block.getBlock() instanceof BlockWithEntity
-            || block.isIn(BlockTags.DOORS)
-            || block.isIn(BlockTags.TRAPDOORS)
-            || block.isIn(BlockTags.FLOWER_POTS)
+        if (block.getBlock() instanceof BaseEntityBlock
+            || block.is(BlockTags.DOORS)
+            || block.is(BlockTags.TRAPDOORS)
+            || block.is(BlockTags.FLOWER_POTS)
         ) {
-            player.currentScreenHandler.updateToClient();
-            return ActionResult.FAIL;
+            player.containerMenu.broadcastFullState();
+            return InteractionResult.FAIL;
         }
 
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
-    private EventResult onBlockPlace(ServerPlayerEntity player, ServerWorld world, BlockPos pos, BlockState state, ItemUsageContext context) {
+    private EventResult onBlockPlace(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state, UseOnContext context) {
         TurfWarsTeam team = getTeamInControlOf(pos);
         boolean isOwnTurf = getTeam(player).getTurf().contains(pos);
         boolean canBuildInEnemyTurf = getParticipant(player).getKit().canBuildInEnemyTurf();
 
-        Text message = null;
+        Component message = null;
         EventResult result = EventResult.PASS;
         if (phase.isGameEndPhase()) {
             result = EventResult.DENY;
         } else if (team == null) {
-            message = Text.translatable("turfwars.game.error." + (canBuildInEnemyTurf ? "can_only_build_in_turf" : "can_only_build_in_own_turf"));
+            message = Component.translatable("turfwars.game.error." + (canBuildInEnemyTurf ? "can_only_build_in_turf" : "can_only_build_in_own_turf"));
         } else if ((isOwnTurf || phase.isCombatPhase() && canBuildInEnemyTurf) && !team.getBuildBlocks().contains(state.getBlock())) {
-            message = Text.translatable("turfwars.game.error.can_only_use_building_blocks");
+            message = Component.translatable("turfwars.game.error.can_only_use_building_blocks");
         } else if (!isOwnTurf) {
             if (!phase.isCombatPhase() && canBuildInEnemyTurf) {
-                message = Text.translatable("turfwars.game.error.can_only_build_in_enemy_turf_during_combat");
+                message = Component.translatable("turfwars.game.error.can_only_build_in_enemy_turf_during_combat");
             } else if (!canBuildInEnemyTurf) {
-                message = Text.translatable("turfwars.game.error.can_only_build_in_own_turf");
+                message = Component.translatable("turfwars.game.error.can_only_build_in_own_turf");
             }
         }
 
         if (message != null) {
-            player.sendMessage(message);
+            player.sendSystemMessage(message);
             result = EventResult.DENY;
         }
 
-        player.currentScreenHandler.updateToClient();
+        player.containerMenu.broadcastFullState();
 
         return result;
     }
 
-    private EventResult onBlockBreak(ServerPlayerEntity player, ServerWorld world, BlockPos pos) {
+    private EventResult onBlockBreak(ServerPlayer player, ServerLevel level, BlockPos pos) {
         TurfWarsTeam team = getTeamInControlOf(pos);
         boolean isOwnTurf = getTeam(player).getTurf().contains(pos);
         boolean canBreakEnemyForts = getParticipant(player).getKit().canBreakEnemyForts();
-        Block block = world.getBlockState(pos).getBlock();
+        Block block = level.getBlockState(pos).getBlock();
 
-        Text message = null;
+        Component message = null;
         EventResult result = EventResult.PASS;
         if (phase.isGameEndPhase()) {
             result = EventResult.DENY;
         } else if (team == null) {
-            message = Text.translatable("turfwars.game.error." + (canBreakEnemyForts ? "can_only_break_in_turf" : "can_only_break_in_own_turf"));
+            message = Component.translatable("turfwars.game.error." + (canBreakEnemyForts ? "can_only_break_in_turf" : "can_only_break_in_own_turf"));
         } else if ((isOwnTurf || phase.isCombatPhase() && canBreakEnemyForts)
             && !team.getBuildBlocks().contains(block) && !team.getOppositeTeam().getBuildBlocks().contains(block)) {
-            message = Text.translatable("turfwars.game.error.can_only_break_building_blocks");
+            message = Component.translatable("turfwars.game.error.can_only_break_building_blocks");
         } else if (!isOwnTurf) {
             if (!phase.isCombatPhase() && canBreakEnemyForts) {
-                message = Text.translatable("turfwars.game.error.can_only_break_in_enemy_turf_during_combat");
+                message = Component.translatable("turfwars.game.error.can_only_break_in_enemy_turf_during_combat");
             } else if (!canBreakEnemyForts) {
-                message = Text.translatable("turfwars.game.error.can_only_break_in_own_turf");
+                message = Component.translatable("turfwars.game.error.can_only_break_in_own_turf");
             }
         }
 
         if (message != null) {
-            player.sendMessage(message);
+            player.sendSystemMessage(message);
             result = EventResult.DENY;
         }
 
-        player.currentScreenHandler.updateToClient();
+        player.containerMenu.broadcastFullState();
 
         return result;
     }
 
-    private EventResult onPlayerDamage(ServerPlayerEntity player, DamageSource source, float amount) {
+    private EventResult onPlayerDamage(ServerPlayer player, DamageSource source, float amount) {
         if (!phase.isGameEndPhase()) {
-            if (source.getAttacker() != null && source.getAttacker() instanceof ServerPlayerEntity attacker) {
+            if (source.getEntity() != null && source.getEntity() instanceof ServerPlayer attacker) {
                 TurfWarsParticipant participant = getParticipant(player);
 
                 if (participant != null) {
@@ -413,39 +420,39 @@ public class TurfWarsGame {
         return EventResult.DENY;
     }
 
-    private EventResult onPlayerAttack(ServerPlayerEntity player, Hand hand, Entity entity, EntityHitResult entityHitResult) {
+    private EventResult onPlayerAttack(ServerPlayer player, InteractionHand hand, Entity entity, EntityHitResult entityHitResult) {
         if (phase.isCombatPhase()) {
             return EventResult.PASS;
-        } else if (entity instanceof ServerPlayerEntity p && getTeam(player) != getTeam(p)) {
-            player.sendMessage(Text.translatable("turfwars.game.error.can_only_attack_during_combat"));
+        } else if (entity instanceof ServerPlayer p && getTeam(player) != getTeam(p)) {
+            player.sendSystemMessage(Component.translatable("turfwars.game.error.can_only_attack_during_combat"));
         }
 
         return EventResult.DENY;
     }
 
-    private EventResult onArrowFire(ServerPlayerEntity player, ItemStack weapon, ArrowItem arrow, int i, PersistentProjectileEntity projectileEntity) {
+    private EventResult onArrowFire(ServerPlayer player, ItemStack weapon, ArrowItem arrow, int i, AbstractArrow projectileEntity) {
         if (phase.isCombatPhase()) {
             statistics.forPlayer(player).increment(StatisticKeys.ARROWS_SHOT, 1);
             return EventResult.PASS;
         } else if (!phase.isGameEndPhase()) {
             // Give player arrow back when firing is denied
-            if (EnchantmentHelper.getAmmoUse(world, weapon, projectileEntity.getItemStack(), 1) != 0) {
-                if (!projectileEntity.getItemStack().contains(DataComponentTypes.INTANGIBLE_PROJECTILE)) {
-                    player.giveItemStack(projectileEntity.getItemStack().copy());
+            if (EnchantmentHelper.processAmmoUse(level, weapon, projectileEntity.getPickupItemStackOrigin(), 1) != 0) {
+                if (!projectileEntity.getPickupItemStackOrigin().has(DataComponents.INTANGIBLE_PROJECTILE)) {
+                    player.addItem(projectileEntity.getPickupItemStackOrigin().copy());
                 }
             }
 
-            player.sendMessage(Text.translatable("turfwars.game.error.can_only_shoot_during_combat"));
+            player.sendSystemMessage(Component.translatable("turfwars.game.error.can_only_shoot_during_combat"));
         }
 
         return EventResult.DENY;
     }
 
-    private EventResult onProjectileHitEntity(ProjectileEntity entity, EntityHitResult entityHitResult) {
-        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayerEntity attacker) {
-            if (entityHitResult.getEntity() instanceof ServerPlayerEntity target) {
+    private EventResult onProjectileHitEntity(Projectile entity, EntityHitResult entityHitResult) {
+        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayer attacker) {
+            if (entityHitResult.getEntity() instanceof ServerPlayer target) {
                 if (teamManager.teamFor(attacker) != teamManager.teamFor(target)) {
-                    if (entity.getType().isIn(EntityTypeTags.ARROWS)) {
+                    if (entity.is(EntityTypeTags.ARROWS)) {
                         statistics.forPlayer(attacker).increment(StatisticKeys.ARROWS_HIT, 1);
                     }
                 }
@@ -455,47 +462,47 @@ public class TurfWarsGame {
         return EventResult.PASS;
     }
 
-    private EventResult onProjectileHitBlock(ProjectileEntity entity, BlockHitResult hitResult) {
+    private EventResult onProjectileHitBlock(Projectile entity, BlockHitResult hitResult) {
         BlockPos blockPos = hitResult.getBlockPos();
-        Block block = world.getBlockState(blockPos).getBlock();
+        Block block = level.getBlockState(blockPos).getBlock();
 
-        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayerEntity player) {
+        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayer player) {
             TurfWarsTeam team = getTeam(player);
             TurfWarsTeam oppositeTeam = team.getOppositeTeam();
 
             if (entity.hasAttached(ModAttachments.FLETCHING_PROJECTILE)
                 && (team.getTurf().contains(blockPos) || oppositeTeam.getTurf().contains(blockPos))
                 && (team.getBuildBlocks().contains(block) || oppositeTeam.getBuildBlocks().contains(block))) {
-                world.breakBlock(blockPos, true);
-                entity.kill(world);
+                level.destroyBlock(blockPos, true);
+                entity.kill(level);
             }
         }
 
         // Protect blocks that can be broken with projectiles
         if (block instanceof ChorusFlowerBlock || block instanceof DecoratedPotBlock
             || block instanceof PointedDripstoneBlock || (entity.isOnFire() && block instanceof TntBlock)) {
-            entity.kill(world);
+            entity.kill(level);
             return EventResult.DENY;
         }
 
         // Prevent picking up persistent projectiles & make them despawn faster (10s despawn)
-        if (entity instanceof PersistentProjectileEntity projectile) {
-            projectile.pickupType = PersistentProjectileEntity.PickupPermission.DISALLOWED;
-            ((PersistentProjectileEntityAccessor) projectile).setLife(1000);
+        if (entity instanceof AbstractArrow projectile) {
+            projectile.pickup = AbstractArrow.Pickup.DISALLOWED;
+            ((AbstractArrowAccessor) projectile).setLife(1000);
         }
 
         return EventResult.PASS;
     }
 
-    public EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
+    public EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
         TurfWarsParticipant participant = getParticipant(player);
         TurfWarsTeam team = participant.getTeam();
 
-        Text message = Text.translatable("turfwars.death." + source.getName(), player.getName());
+        Component message = Component.translatable("turfwars.death." + source.getMsgId(), player.getName());
         int turfLinesConquered = Math.min(linesPerKill, team.getScore());
 
-        ServerPlayerEntity attacker = source.getAttacker() != null && source.getAttacker().isPlayer()
-            ? (ServerPlayerEntity) source.getAttacker() : participant.getLastAttacker();
+        ServerPlayer attacker = source.getEntity() != null && source.getEntity().isAlwaysTicking()
+            ? (ServerPlayer) source.getEntity() : participant.getLastAttacker();
         if (attacker != null) {
             TurfWarsParticipant attackingParticipant = getParticipant(attacker);
             StatisticMap stats = statistics.forPlayer(attacker);
@@ -506,25 +513,25 @@ public class TurfWarsGame {
                 stats.set(StatisticKeys.HIGHEST_KILLSTREAK, attackingParticipant.killstreak);
             }
 
-            if (source.isIn(DamageTypeTags.IS_PLAYER_ATTACK)) {
+            if (source.is(DamageTypeTags.IS_PLAYER_ATTACK)) {
                 stats.increment(StatisticKeys.MELEE_KILLS, 1);
-            } else if (source.isIn(DamageTypeTags.IS_PROJECTILE)) {
+            } else if (source.is(DamageTypeTags.IS_PROJECTILE)) {
                 stats.increment(StatisticKeys.RANGED_KILLS, 1);
             }
 
-            message = Text.translatable("turfwars.death." + source.getName() + ".player", attacker.getName(), player.getName());
+            message = Component.translatable("turfwars.death." + source.getMsgId() + ".player", attacker.getName(), player.getName());
         }
 
         // Spawn death "particles"
         for (int i = 0; i < 5; i++) {
-            var entity = new ItemEntity(world, player.getX(), player.getY(), player.getZ(), ColoredItems.dye(team.getDyeColor()).getDefaultStack());
-            ((ItemEntityAccessor) entity).setItemAge(5980);
-            entity.setPickupDelayInfinite();
-            world.spawnEntity(entity);
+            var entity = new ItemEntity(level, player.getX(), player.getY(), player.getZ(), ColoredItems.dye(team.getDyeColor()).getDefaultInstance());
+            ((ItemEntityAccessor) entity).setAge(5980);
+            entity.setNeverPickUp();
+            level.addFreshEntity(entity);
         }
 
         statistics.forPlayer(player).increment(StatisticKeys.DEATHS, 1);
-        player.changeGameMode(GameMode.SPECTATOR);
+        player.setGameMode(GameType.SPECTATOR);
         participant.onDeath();
 
         moveTurfLine(attacker, team, turfLinesConquered);
@@ -533,7 +540,7 @@ public class TurfWarsGame {
         return EventResult.DENY;
     }
 
-    private void moveTurfLine(ServerPlayerEntity attacker, TurfWarsTeam team, int amount) {
+    private void moveTurfLine(ServerPlayer attacker, TurfWarsTeam team, int amount) {
         TurfWarsTeam oppositeTeam = team.getOppositeTeam();
 
         oppositeTeam.expandTurf(amount);
@@ -544,28 +551,28 @@ public class TurfWarsGame {
         }
 
         oppositeTeam.getTurf().iterator().forEachRemaining(pos -> {
-            BlockState block = world.getBlockState(pos);
-            Vec3d centerPos = pos.toCenterPos();
+            BlockState block = level.getBlockState(pos);
+            Vec3 centerPos = pos.getCenter();
 
             if (team.getBuildBlocks().contains(block.getBlock())) {
-                world.removeBlock(pos, false);
-                world.spawnParticles(new DustParticleEffect(block.getMapColor(world, pos).color, 1.0F),
-                    centerPos.getX(), centerPos.getY(), centerPos.getZ(), 5, 0, 0, 0, 0);
+                level.removeBlock(pos, false);
+                level.sendParticles(new DustParticleOptions(block.getMapColor(level, pos).col, 1.0F),
+                    centerPos.x(), centerPos.y(), centerPos.z(), 5, 0, 0, 0, 0);
             } else if (team.getFloorBlocks().isEmpty() || team.getFloorBlocks().contains(block)) {
-                BlockState newBlock = ColoredBlockUtil.block(block, oppositeTeam.getDyeColor()).getStateWithProperties(block);
+                BlockState newBlock = ColoredBlockUtil.block(block, oppositeTeam.getDyeColor()).withPropertiesOf(block);
                 if (!team.getFloorBlocks().isEmpty()) {
                     newBlock = oppositeTeam.getFloorBlocks().get(team.getFloorBlocks().indexOf(block));
 
-                    if (newBlock.equals(newBlock.getBlock().getDefaultState())) {
-                        newBlock = newBlock.getBlock().getStateWithProperties(block);
+                    if (newBlock.equals(newBlock.getBlock().defaultBlockState())) {
+                        newBlock = newBlock.getBlock().withPropertiesOf(block);
                     }
                 }
 
-                world.setBlockState(pos, newBlock);
+                level.setBlockAndUpdate(pos, newBlock);
 
-                if (world.getBlockState(pos.up()).isAir()) {
-                    world.spawnParticles(new DustParticleEffect(block.getMapColor(world, pos).color, 1.0F),
-                        centerPos.getX(), centerPos.getY() + 1, centerPos.getZ(), 5, 0, 0, 0, 0);
+                if (level.getBlockState(pos.above()).isAir()) {
+                    level.sendParticles(new DustParticleOptions(block.getMapColor(level, pos).col, 1.0F),
+                        centerPos.x(), centerPos.y() + 1, centerPos.z(), 5, 0, 0, 0, 0);
                 }
             }
         });
@@ -583,21 +590,21 @@ public class TurfWarsGame {
                 });
             }
 
-            gameSpace.getPlayers().sendMessage(Text.translatable("turfwars.game.won", oppositeTeam.getName()));
+            gameSpace.getPlayers().sendMessage(Component.translatable("turfwars.game.won", oppositeTeam.getName()));
             setPhase(TurfWarsPhase.GAME_END_PHASE);
         }
     }
 
-    private EventResult onItemPickup(ServerPlayerEntity player, ItemEntity itemEntity, ItemStack itemStack) {
+    private EventResult onItemPickup(ServerPlayer player, ItemEntity itemEntity, ItemStack itemStack) {
         if (itemStack.getItem() instanceof BlockItem item) {
             List<Block> buildBlocks = getTeam(player).getOppositeTeam().getBuildBlocks();
-            Block block = Block.getBlockFromItem(item);
+            Block block = Block.byItem(item);
 
             if (buildBlocks.contains(block)) {
                 Item newItem = getTeam(player).getBuildBlocks().get(buildBlocks.indexOf(block)).asItem();
-                if (player.getInventory().insertStack(itemStack.withItem(newItem))) {
-                    player.sendPickup(itemEntity, itemStack.getCount());
-                    itemEntity.kill(world);
+                if (player.getInventory().add(itemStack.transmuteCopy(newItem))) {
+                    player.take(itemEntity, itemStack.getCount());
+                    itemEntity.kill(level);
                     return EventResult.DENY;
                 }
             }
@@ -610,11 +617,11 @@ public class TurfWarsGame {
         return participants;
     }
 
-    public TurfWarsParticipant getParticipant(ServerPlayerEntity player) {
+    public TurfWarsParticipant getParticipant(ServerPlayer player) {
         return participants.get(PlayerRef.of(player));
     }
 
-    public TurfWarsTeam getTeam(ServerPlayerEntity player) {
+    public TurfWarsTeam getTeam(ServerPlayer player) {
         TurfWarsParticipant participant = getParticipant(player);
 
         if (participant != null) {
@@ -643,7 +650,7 @@ public class TurfWarsGame {
         return null;
     }
 
-    public void trySwitchTeamFor(ServerPlayerEntity player, boolean balancedTeams) {
+    public void trySwitchTeamFor(ServerPlayer player, boolean balancedTeams) {
         TurfWarsParticipant participant = getParticipant(player);
         TurfWarsTeam team = participant.getTeam().getOppositeTeam();
         GameTeamKey teamKey = team.getGameTeam().key();
@@ -653,9 +660,9 @@ public class TurfWarsGame {
             participant.setTeam(team);
             participant.spawn();
             participant.setKit(participant.getKit());
-            player.sendMessage(Text.translatable("turfwars.team.join", team.getName()));
+            player.sendSystemMessage(Component.translatable("turfwars.team.join", team.getName()));
         } else {
-            player.sendMessage(Text.translatable("turfwars.team.request.denied"));
+            player.sendSystemMessage(Component.translatable("turfwars.team.request.denied"));
         }
     }
 }

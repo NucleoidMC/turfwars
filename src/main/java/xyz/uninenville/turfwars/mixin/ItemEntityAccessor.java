@@ -1,6 +1,6 @@
 package xyz.uninenville.turfwars.mixin;
 
-import net.minecraft.entity.ItemEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -8,5 +8,5 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface ItemEntityAccessor {
 
     @Accessor
-    void setItemAge(int age);
+    void setAge(int age);
 }

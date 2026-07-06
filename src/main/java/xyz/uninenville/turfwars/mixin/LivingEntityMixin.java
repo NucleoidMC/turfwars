@@ -1,11 +1,11 @@
 package xyz.uninenville.turfwars.mixin;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.world.World;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,15 +15,15 @@ import xyz.uninenville.turfwars.attachment.ModAttachments;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin extends Entity {
 
-    public LivingEntityMixin(EntityType<?> type, World world) {
-        super(type, world);
+    public LivingEntityMixin(EntityType<?> type, Level level) {
+        super(type, level);
     }
 
-    @Inject(method = "modifyAppliedDamage", at = @At(value = "HEAD"), cancellable = true)
-    public void applyProjectileDamageOverride(DamageSource source, float amount, CallbackInfoReturnable<Float> cir) {
-        if (source.getSource() != null && source.getSource() instanceof ProjectileEntity projectile) {
+    @Inject(method = "getDamageAfterMagicAbsorb", at = @At(value = "HEAD"), cancellable = true)
+    public void applyProjectileDamageOverride(DamageSource damageSource, float damage, CallbackInfoReturnable<Float> cir) {
+        if (damageSource.getDirectEntity() != null && damageSource.getDirectEntity() instanceof Projectile projectile) {
             if (projectile.hasAttached(ModAttachments.PROJECTILE_DAMAGE_OVERRIDE)) {
-                cir.setReturnValue(projectile.getAttachedOrElse(ModAttachments.PROJECTILE_DAMAGE_OVERRIDE, amount));
+                cir.setReturnValue(projectile.getAttachedOrElse(ModAttachments.PROJECTILE_DAMAGE_OVERRIDE, damage));
             }
         }
     }

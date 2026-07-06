@@ -1,8 +1,8 @@
 package xyz.uninenville.turfwars.game;
 
 import com.google.common.collect.Maps;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -64,7 +64,7 @@ public class TimedItemManager {
         this.shouldTick = shouldTick;
     }
 
-    private boolean hasLessThanThresholdAmount(ServerPlayerEntity player, Map.Entry<TimedItem, Entry> entry) {
+    private boolean hasLessThanThresholdAmount(ServerPlayer player, Map.Entry<TimedItem, Entry> entry) {
         TimedItem item = entry.getKey();
         return InventoryUtil.countItems(player, getItemStack(player, item)) < item.thresholdAmount();
     }
@@ -73,17 +73,17 @@ public class TimedItemManager {
         return entry.getValue().ticksUntilGive <= 0;
     }
 
-    private void giveItem(ServerPlayerEntity player, TimedItem item) {
+    private void giveItem(ServerPlayer player, TimedItem item) {
         ItemStack stack = getItemStack(player, item);
         int count = InventoryUtil.countItems(player, stack);
         int giveCount = count + stack.getCount() <= item.thresholdAmount() ? stack.getCount() : item.thresholdAmount() % count;
 
-        player.giveItemStack(ItemStackBuilder.of(stack).setCount(giveCount).build());
+        player.addItem(ItemStackBuilder.of(stack).setCount(giveCount).build());
     }
 
-    private ItemStack getItemStack(ServerPlayerEntity player, TimedItem item) {
-        ItemStack stack = item.stack().copy();
-        if (stack.contains(ModComponents.APPLY_TEAM_COLOR)) {
+    private ItemStack getItemStack(ServerPlayer player, TimedItem item) {
+        ItemStack stack = item.stack().create();
+        if (stack.has(ModComponents.APPLY_TEAM_COLOR)) {
             stack = ColoredBlockUtil.getStackWithTeamColor(stack, this.teamManager, PlayerRef.of(player));
             stack.remove(ModComponents.APPLY_TEAM_COLOR);
         }

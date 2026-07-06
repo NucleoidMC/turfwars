@@ -1,16 +1,16 @@
 package xyz.uninenville.turfwars.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.item.BowItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.RangedWeaponItem;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ProjectileWeaponItem;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,35 +23,35 @@ import xyz.uninenville.turfwars.util.SoundInstance;
 import java.util.List;
 
 @Mixin(BowItem.class)
-public abstract class BowItemMixin extends RangedWeaponItem {
+public abstract class BowItemMixin extends ProjectileWeaponItem {
 
-    public BowItemMixin(Settings settings) {
+    public BowItemMixin(Properties settings) {
         super(settings);
     }
 
     @Inject(method = "use", at = @At(value = "HEAD"))
-    private void use(World world, PlayerEntity user, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
-        if (!world.isClient()) {
-            ItemStack bow = user.getStackInHand(hand);
+    private void use(Level level, Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+        if (!level.isClientSide()) {
+            ItemStack bow = player.getItemInHand(hand);
 
-            if (bow.contains(ModComponents.BARRAGE_ABILITY)) {
+            if (bow.has(ModComponents.BARRAGE_ABILITY)) {
                 bow.set(ModComponents.BARRAGE_PROJECTILES_LOADED, 0);
             }
         }
     }
 
     @Override
-    public void usageTick(World world, LivingEntity user, ItemStack stack, int remainingUseTicks) {
+    public void onUseTick(Level level, LivingEntity user, ItemStack stack, int remainingUseTicks) {
         BarrageComponent barrage = stack.get(ModComponents.BARRAGE_ABILITY);
 
         if (barrage != null) {
             int projectilesLoaded = stack.getOrDefault(ModComponents.BARRAGE_PROJECTILES_LOADED, 0);
 
-            if (!world.isClient() && user instanceof ServerPlayerEntity player) {
-                int ticksUsed = stack.getMaxUseTime(player) - remainingUseTicks;
+            if (!level.isClientSide() && user instanceof ServerPlayer player) {
+                int ticksUsed = stack.getUseDuration(player) - remainingUseTicks;
 
                 // Barrage ability is only used when the first arrow is fully loaded
-                if (BowItem.getPullProgress(ticksUsed) != 1.0F) {
+                if (BowItem.getPowerForTime(ticksUsed) != 1.0F) {
                     return;
                 }
 
@@ -86,7 +86,7 @@ public abstract class BowItemMixin extends RangedWeaponItem {
 
                 // Send bow charging bar
                 if (barrage.chargingBar().isEnabled()) {
-                    player.sendMessage(barrage.getChargingBar(ticksUsed), true);
+                    player.sendSystemMessage(barrage.getChargingBar(ticksUsed), true);
                 }
 
                 stack.set(ModComponents.BARRAGE_PROJECTILES_LOADED, projectilesLoaded);
@@ -95,29 +95,29 @@ public abstract class BowItemMixin extends RangedWeaponItem {
     }
 
     @Inject(
-        method = "onStoppedUsing",
+        method = "releaseUsing",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/world/World;playSound(Lnet/minecraft/entity/Entity;DDDLnet/minecraft/sound/SoundEvent;Lnet/minecraft/sound/SoundCategory;FF)V"
+            target = "Lnet/minecraft/world/level/Level;playSound(Lnet/minecraft/world/entity/Entity;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V"
         ),
         cancellable = true
     )
-    private void cancelSoundIfUsingBarrage(ItemStack stack, World world, LivingEntity user, int remainingUseTicks, CallbackInfoReturnable<Boolean> cir) {
-        if (stack.contains(ModComponents.BARRAGE_ABILITY)) {
+    private void cancelSoundIfUsingBarrage(ItemStack itemStack, Level level, LivingEntity entity, int remainingTime, CallbackInfoReturnable<Boolean> cir) {
+        if (itemStack.has(ModComponents.BARRAGE_ABILITY)) {
             cir.cancel();
         }
     }
 
     @ModifyArg(
-        method = "shoot",
+        method = "shootProjectile",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/entity/projectile/ProjectileEntity;setVelocity(Lnet/minecraft/entity/Entity;FFFFF)V"
+            target = "Lnet/minecraft/world/entity/projectile/Projectile;shootFromRotation(Lnet/minecraft/world/entity/Entity;FFFFF)V"
         ),
         index = 5
     )
-    protected float modifyBarrageProjectileSpread(float original, @Local(argsOnly = true) ProjectileEntity projectile) {
-        ItemStack weapon = projectile.getWeaponStack();
+    protected float modifyBarrageProjectileSpread(float original, @Local(argsOnly = true) Projectile projectileEntity) {
+        ItemStack weapon = projectileEntity.getWeaponItem();
 
         if (weapon != null) {
             BarrageComponent barrage = weapon.get(ModComponents.BARRAGE_ABILITY);

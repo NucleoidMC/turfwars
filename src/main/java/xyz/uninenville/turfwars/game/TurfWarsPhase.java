@@ -1,7 +1,7 @@
 package xyz.uninenville.turfwars.game;
 
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 public enum TurfWarsPhase {
     GAME_START_PHASE,
@@ -10,8 +10,8 @@ public enum TurfWarsPhase {
     COMBAT,
     BUILD;
 
-    public MutableText getName() {
-        return Text.translatable("turfwars.phase." + this.toString().toLowerCase());
+    public MutableComponent getName() {
+        return Component.translatable("turfwars.phase." + this.toString().toLowerCase());
     }
 
     public TurfWarsPhase getNextPhase() {

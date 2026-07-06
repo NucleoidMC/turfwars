@@ -3,18 +3,18 @@ package xyz.uninenville.turfwars.game;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.rule.GameRules;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.fantasy.Fantasy;
-import xyz.nucleoid.fantasy.RuntimeWorldConfig;
+import xyz.nucleoid.fantasy.RuntimeLevelConfig;
 import xyz.nucleoid.plasmid.api.game.*;
 import xyz.nucleoid.plasmid.api.game.common.GameWaitingLobby;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamKey;
@@ -24,6 +24,7 @@ import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
 import xyz.nucleoid.plasmid.api.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.api.game.player.JoinAcceptor;
 import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
+import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.util.PlayerPos;
 import xyz.uninenville.turfwars.TurfWars;
 import xyz.uninenville.turfwars.config.TurfWarsConfig;
@@ -39,20 +40,20 @@ public class TurfWarsWaiting {
     private final GameWaitingLobby waitingLobby;
     private final TeamSelectionLobby teamSelectionLobby;
     private final GameTeamList teams;
-    private ServerWorld world;
+    private ServerLevel level;
     private TurfWarsMap map;
 
     private final Map<UUID, Identifier> mapPreference = new Object2ObjectOpenHashMap<>();
     private Identifier mapId;
 
-    public TurfWarsWaiting(GameActivity activity, TurfWarsConfig config, TurfWarsMap lobbyMap, ServerWorld world) {
+    public TurfWarsWaiting(GameActivity activity, TurfWarsConfig config, TurfWarsMap lobbyMap, ServerLevel level) {
         this.gameSpace = activity.getGameSpace();
         this.config = config;
         this.waitingLobby = GameWaitingLobby.addTo(activity, config.players());
         this.teams = config.getTeams();
         this.teamSelectionLobby = TeamSelectionLobby.addTo(activity, teams);
         this.map = lobbyMap;
-        this.world = world;
+        this.level = level;
     }
 
     public static GameOpenProcedure open(GameOpenContext<TurfWarsConfig> context) {
@@ -60,41 +61,43 @@ public class TurfWarsWaiting {
         Identifier lobbyMapId = config.lobbyMap().isPresent() ? config.lobbyMap().get() : config.getRandomMap();
         TurfWarsMap lobbyMap = generateMap(lobbyMapId, context.server(), config.lobbyMap().isPresent());
 
-        var worldConfig = new RuntimeWorldConfig()
+        var levelConfig = new RuntimeLevelConfig()
             .setDimensionType(Fantasy.DEFAULT_DIM_TYPE)
             .setGenerator(lobbyMap.asGenerator(context.server()))
             .setGameRule(GameRules.NATURAL_HEALTH_REGENERATION, false)
             .setGameRule(GameRules.ADVANCE_TIME, false);
 
-        return context.openWithWorld(worldConfig, (activity, world) -> {
-            TurfWarsWaiting waiting = new TurfWarsWaiting(activity, config, lobbyMap, world);
+        return context.openWithLevel(levelConfig, (activity, level) -> {
+            TurfWarsWaiting waiting = new TurfWarsWaiting(activity, config, lobbyMap, level);
 
-            activity.listen(GameActivityEvents.REQUEST_START, waiting::requestStart);
             activity.listen(GameActivityEvents.ENABLE, waiting::enableActivity);
             activity.listen(GameActivityEvents.DISABLE, waiting::disableActivity);
             activity.listen(GameActivityEvents.TICK, waiting::tick);
-            activity.listen(GamePlayerEvents.ACCEPT, waiting::acceptPlayer);
+            activity.listen(GameActivityEvents.REQUEST_START, waiting::requestStart);
+
             activity.listen(GamePlayerEvents.JOIN, waiting::addPlayer);
             activity.listen(GamePlayerEvents.LEAVE, waiting::removePlayer);
+            activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
+            activity.listen(GamePlayerEvents.ACCEPT, waiting::acceptPlayer);
         });
     }
 
     private GameResult requestStart() {
         if (config.lobbyMap().isPresent()) {
             this.map = generateMap(isMapSelected() ? mapId : config.getRandomMap(), gameSpace.getServer(), false);
-            var worldConfig = new RuntimeWorldConfig()
+            var levelConfig = new RuntimeLevelConfig()
                 .setDimensionType(Fantasy.DEFAULT_DIM_TYPE)
                 .setGenerator(map.asGenerator(gameSpace.getServer()))
                 .setGameRule(GameRules.NATURAL_HEALTH_REGENERATION, false)
                 .setGameRule(GameRules.ADVANCE_TIME, false);
 
-            this.world = gameSpace.getWorlds().add(worldConfig);
+            this.level = gameSpace.getLevels().add(levelConfig);
         }
 
-        Multimap<GameTeamKey, ServerPlayerEntity> players = HashMultimap.create();
+        Multimap<GameTeamKey, ServerPlayer> players = HashMultimap.create();
         teamSelectionLobby.allocate(gameSpace.getPlayers(), players::put);
 
-        return TurfWarsGame.startGame(gameSpace, config, map, world, players, teams);
+        return TurfWarsGame.startGame(gameSpace, config, map, level, players, teams);
     }
 
     private void enableActivity() {
@@ -107,9 +110,9 @@ public class TurfWarsWaiting {
 
     private void tick() {
         gameSpace.getPlayers().forEach(player -> {
-            if (!map.template.getBounds().contains(player.getBlockPos())) {
+            if (!map.template.getBounds().contains(player.blockPosition())) {
                 PlayerPos spawn = map.getRandomSpawn();
-                player.teleport(world, spawn.x(), spawn.y(), spawn.z(), Set.of(), spawn.yaw(), spawn.pitch(), true);
+                player.teleportTo(level, spawn.x(), spawn.y(), spawn.z(), Set.of(), spawn.yaw(), spawn.pitch(), true);
             }
         });
 
@@ -129,39 +132,39 @@ public class TurfWarsWaiting {
 
     private JoinAcceptorResult acceptPlayer(JoinAcceptor offer) {
         PlayerPos spawn = map.getRandomSpawn();
-        return offer.teleport(world, new Vec3d(spawn.x(), spawn.y(), spawn.z()), spawn.yaw(), spawn.pitch())
-            .thenRunForEach(player -> player.changeGameMode(GameMode.ADVENTURE));
+        return offer.teleport(level, new Vec3(spawn.x(), spawn.y(), spawn.z()), spawn.yaw(), spawn.pitch()) //fixme level null?
+            .thenRunForEach(player -> player.setGameMode(GameType.ADVENTURE));
     }
 
-    private void addPlayer(ServerPlayerEntity player) {
-        player.getEntityWorld().getServer().getCommandManager().sendCommandTree(player);
+    private void addPlayer(ServerPlayer player) {
+        level.getServer().getCommands().sendCommands(player);
 
         if (!config.randomMap() && mapId == null) {
-            player.sendMessage(Text.translatable("turfwars.map.vote.format", getMaps()));
+            player.sendSystemMessage(Component.translatable("turfwars.map.vote.format", getMaps()));
         }
     }
 
-    private Text getMaps() {
-        MutableText maps = Text.empty();
+    private Component getMaps() {
+        MutableComponent maps = Component.empty();
         for (Identifier map : config.maps()) {
-            maps.append(Text.translatable("turfwars.map.vote.candinate",
-                Text.of(map),
-                Text.of(String.valueOf(config.maps().indexOf(map) + 1)),
-                Text.translatable(map.getNamespace() + ".map." + map.getPath()),
-                Text.of(String.valueOf(mapPreference.values().stream().filter(map::equals).count()))
-            ).append(map != config.maps().getLast() ? Text.translatable("turfwars.map.vote.separator") : Text.empty()));
+            maps.append(Component.translatable("turfwars.map.vote.candinate",
+                Component.translationArg(map),
+                Component.nullToEmpty(String.valueOf(config.maps().indexOf(map) + 1)),
+                Component.translatable(map.getNamespace() + ".map." + map.getPath()),
+                Component.nullToEmpty(String.valueOf(mapPreference.values().stream().filter(map::equals).count()))
+            ).append(map != config.maps().getLast() ? Component.translatable("turfwars.map.vote.separator") : Component.empty()));
         }
 
         return maps;
     }
 
-    private void removePlayer(ServerPlayerEntity player) {
-        player.getEntityWorld().getServer().getCommandManager().sendCommandTree(player);
-        mapPreference.remove(player.getUuid());
+    private void removePlayer(ServerPlayer player) {
+        level.getServer().getCommands().sendCommands(player);
+        mapPreference.remove(player.getUUID());
     }
 
-    public Text getMapName(Identifier mapId) {
-        return Text.translatable(mapId.getNamespace() + ".map." + mapId.getPath());
+    public Component getMapName(Identifier mapId) {
+        return Component.translatable(mapId.getNamespace() + ".map." + mapId.getPath());
     }
 
     public boolean isMapSelected() {
@@ -170,12 +173,12 @@ public class TurfWarsWaiting {
 
     public void selectMap(Identifier map) {
         this.mapId = map;
-        gameSpace.getPlayers().sendMessage(Text.translatable("turfwars.map.selected", getMapName(this.mapId)));
+        gameSpace.getPlayers().sendMessage(Component.translatable("turfwars.map.selected", getMapName(this.mapId)));
     }
 
-    public void voteForMap(ServerPlayerEntity player, Identifier mapId) {
-        mapPreference.put(player.getUuid(), mapId);
-        player.sendMessage(Text.translatable("turfwars.map.vote.success", getMapName(mapId)));
+    public void voteForMap(ServerPlayer player, Identifier mapId) {
+        mapPreference.put(player.getUUID(), mapId);
+        player.sendSystemMessage(Component.translatable("turfwars.map.vote.success", getMapName(mapId)));
     }
 
     public Identifier getWinningMap() {
@@ -194,7 +197,7 @@ public class TurfWarsWaiting {
             }
         }
 
-        return winners.get(Random.create().nextInt(winners.size()));
+        return winners.get(RandomSource.create().nextInt(winners.size()));
     }
 
     private static TurfWarsMap generateMap(Identifier mapId, MinecraftServer server, boolean lobby) {

@@ -2,7 +2,7 @@ package xyz.uninenville.turfwars.config;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.util.dynamic.Codecs;
+import net.minecraft.util.ExtraCodecs;
 
 public record TurfWarsGameConfig(
     int gameStartTime,
@@ -23,15 +23,15 @@ public record TurfWarsGameConfig(
     );
 
     public static final Codec<TurfWarsGameConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("game_start_time", DEFAULT.gameStartTime).forGetter(TurfWarsGameConfig::gameStartTime),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("game_end_time", DEFAULT.gameEndTime).forGetter(TurfWarsGameConfig::gameEndTime),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("initial_build_time", DEFAULT.initialBuildTime).forGetter(TurfWarsGameConfig::initialBuildTime),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("combat_time", DEFAULT.combatTime).forGetter(TurfWarsGameConfig::combatTime),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("build_time", DEFAULT.buildTime).forGetter(TurfWarsGameConfig::buildTime),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("initial_build_time_wool_amount", DEFAULT.initialBuildTimeWoolAmount).forGetter(TurfWarsGameConfig::initialBuildTimeWoolAmount),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("build_time_wool_amount", DEFAULT.buildTimeWoolAmount).forGetter(TurfWarsGameConfig::buildTimeWoolAmount),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("respawn_wool_amount", DEFAULT.respawnWoolAmount).forGetter(TurfWarsGameConfig::respawnWoolAmount),
-        Codecs.NON_NEGATIVE_INT.optionalFieldOf("respawn_delay", DEFAULT.respawnDelay).forGetter(TurfWarsGameConfig::respawnDelay),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("game_start_time", DEFAULT.gameStartTime).forGetter(TurfWarsGameConfig::gameStartTime),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("game_end_time", DEFAULT.gameEndTime).forGetter(TurfWarsGameConfig::gameEndTime),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("initial_build_time", DEFAULT.initialBuildTime).forGetter(TurfWarsGameConfig::initialBuildTime),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("combat_time", DEFAULT.combatTime).forGetter(TurfWarsGameConfig::combatTime),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("build_time", DEFAULT.buildTime).forGetter(TurfWarsGameConfig::buildTime),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("initial_build_time_wool_amount", DEFAULT.initialBuildTimeWoolAmount).forGetter(TurfWarsGameConfig::initialBuildTimeWoolAmount),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("build_time_wool_amount", DEFAULT.buildTimeWoolAmount).forGetter(TurfWarsGameConfig::buildTimeWoolAmount),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("respawn_wool_amount", DEFAULT.respawnWoolAmount).forGetter(TurfWarsGameConfig::respawnWoolAmount),
+        ExtraCodecs.NON_NEGATIVE_INT.optionalFieldOf("respawn_delay", DEFAULT.respawnDelay).forGetter(TurfWarsGameConfig::respawnDelay),
         Codec.BOOL.optionalFieldOf("allow_join_after_start", DEFAULT.allowJoinAfterStart).forGetter(TurfWarsGameConfig::allowJoinAfterStart)
     ).apply(instance, TurfWarsGameConfig::new));
 }

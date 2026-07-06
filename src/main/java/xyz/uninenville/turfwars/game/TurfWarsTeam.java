@@ -1,18 +1,18 @@
 package xyz.uninenville.turfwars.game;
 
-import net.minecraft.block.AbstractBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamConfig;
@@ -41,7 +41,7 @@ public class TurfWarsTeam {
         this.team = team;
 
         TurfWarsMap map = game.map;
-        NbtCompound data = map.template.getMetadata().getData();
+        CompoundTag data = map.template.getMetadata().getData();
         // Load map specific team data (team name & colors)
         if (data.contains(TEAMS_KEY)) {
             TeamsConfig.CODEC.parse(NbtOps.INSTANCE, data.get(TEAMS_KEY)).resultOrPartial(LOGGER::error).ifPresent(teams -> {
@@ -63,36 +63,36 @@ public class TurfWarsTeam {
         map.template.getMetadata().getRegions().forEach(region -> {
             // Initialize spawn positions
             if (region.getMarker().equals(isBlue() ? BLUE_SPAWN : RED_SPAWN)) {
-                ServerWorld world = game.world;
+                ServerLevel level = game.level;
                 BlockBounds bounds = region.getBounds();
-                Vec2f rotation = map.getSpawnRotation(region, new Vec2f(isBlue() ? 90.0F : -90.0F, 0F));
+                Vec2 rotation = map.getSpawnRotation(region, new Vec2(isBlue() ? 90.0F : -90.0F, 0F));
 
                 bounds.iterator().forEachRemaining(pos -> {
-                    if (world.getBlockState(pos.down()).isFullCube(world, pos.down()) && world.isAir(pos) && world.isAir(pos.up())) {
-                        Vec3d spawn = pos.toBottomCenterPos();
-                        spawnPositions.add(new PlayerPos(world, spawn.getX(), spawn.getY(), spawn.getZ(), rotation.x, rotation.y));
+                    if (level.getBlockState(pos.below()).isCollisionShapeFullBlock(level, pos.below()) && level.isEmptyBlock(pos) && level.isEmptyBlock(pos.above())) {
+                        Vec3 spawn = pos.getBottomCenter();
+                        spawnPositions.add(new PlayerPos(level, spawn.x(), spawn.y(), spawn.z(), rotation.x, rotation.y));
                     }
                 });
             }
 
             // Initialize build and floor blocks
-            this.buildBlocks = map.getBlocksAt(isBlue() ? BLUE_AREA : RED_AREA, BUILD_BLOCKS_KEY, isBlue() ? List.of(Blocks.BLUE_WOOL) : List.of(Blocks.RED_WOOL)).stream().map(AbstractBlock.AbstractBlockState::getBlock).toList();
+            this.buildBlocks = map.getBlocksAt(isBlue() ? BLUE_AREA : RED_AREA, BUILD_BLOCKS_KEY, isBlue() ? List.of(Blocks.BLUE_WOOL) : List.of(Blocks.RED_WOOL)).stream().map(BlockBehaviour.BlockStateBase::getBlock).toList();
             this.floorBlocks = map.getBlocksAt(isBlue() ? BLUE_AREA : RED_AREA, FLOOR_BLOCKS_KEY, List.of());
         });
 
-        this.score = (int) game.map.getRegion(isBlue() ? BLUE_AREA : RED_AREA).asBox().getLengthX();
+        this.score = (int) game.map.getRegion(isBlue() ? BLUE_AREA : RED_AREA).asBox().getXsize();
     }
 
     public GameTeam getGameTeam() {
         return team;
     }
 
-    public Text getName() {
+    public Component getName() {
         return team.config().name();
     }
 
     public int getColor() {
-        return team.config().dyeColor().getRgb();
+        return team.config().dyeColor().getValue();
     }
 
     public DyeColor getDyeColor() {
@@ -103,12 +103,12 @@ public class TurfWarsTeam {
         var spawnPositions = this.spawnPositions.stream().filter(pos -> game.getParticipants().values().stream().noneMatch(p -> p.getSpawn().equals(pos))).toList();
 
         if (spawnPositions.isEmpty()) {
-            Vec3d pos = game.map.getRegion(isBlue() ? BLUE_SPAWN : RED_SPAWN).centerBottom();
-            Vec2f rotation = new Vec2f(isBlue() ? 90.0F : -90.0F, 0F);
-            return new PlayerPos(game.world, pos.getX(), pos.getY(), pos.getZ(), rotation.x, rotation.y);
+            Vec3 pos = game.map.getRegion(isBlue() ? BLUE_SPAWN : RED_SPAWN).centerBottom();
+            Vec2 rotation = new Vec2(isBlue() ? 90.0F : -90.0F, 0F);
+            return new PlayerPos(game.level, pos.x(), pos.y(), pos.z(), rotation.x, rotation.y);
         }
 
-        return spawnPositions.get(Random.create().nextInt(spawnPositions.size()));
+        return spawnPositions.get(RandomSource.create().nextInt(spawnPositions.size()));
     }
 
     public BlockBounds getTurf() {

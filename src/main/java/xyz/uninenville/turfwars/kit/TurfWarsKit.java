@@ -2,14 +2,13 @@ package xyz.uninenville.turfwars.kit;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import xyz.nucleoid.codecs.MoreCodecs;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStackTemplate;
 import xyz.nucleoid.plasmid.api.util.ItemStackBuilder;
 import xyz.uninenville.turfwars.game.TurfWarsPlayerDataStorage;
 import xyz.uninenville.turfwars.game.TurfWarsTeam;
@@ -19,9 +18,9 @@ import java.util.Map;
 
 public record TurfWarsKit(
     String id,
-    ItemStack icon,
-    Map<EquipmentSlot, ItemStack> equipment,
-    List<ItemStack> items,
+    ItemStackTemplate icon,
+    Map<EquipmentSlot, ItemStackTemplate> equipment,
+    List<ItemStackTemplate> items,
     List<TimedItem> timedItems,
     List<TimedEffect> timedEffects,
     boolean canEnterEnemyTurf,
@@ -30,9 +29,9 @@ public record TurfWarsKit(
 ) {
     public static final Codec<TurfWarsKit> CODEC = RecordCodecBuilder.create(instance -> instance.group(
         Codec.STRING.fieldOf("id").forGetter(TurfWarsKit::id),
-        MoreCodecs.ITEM_STACK.fieldOf("icon").forGetter(TurfWarsKit::icon),
-        Codec.unboundedMap(EquipmentSlot.CODEC, MoreCodecs.ITEM_STACK).optionalFieldOf("equipment", Map.of()).forGetter(TurfWarsKit::equipment),
-        MoreCodecs.ITEM_STACK.listOf().optionalFieldOf("items", List.of()).forGetter(TurfWarsKit::items),
+        ItemStackTemplate.CODEC.fieldOf("icon").forGetter(TurfWarsKit::icon),
+        Codec.unboundedMap(EquipmentSlot.CODEC, ItemStackTemplate.CODEC).optionalFieldOf("equipment", Map.of()).forGetter(TurfWarsKit::equipment),
+        ItemStackTemplate.CODEC.listOf().optionalFieldOf("items", List.of()).forGetter(TurfWarsKit::items),
         TimedItem.CODEC.listOf().optionalFieldOf("timed_items", List.of()).forGetter(TurfWarsKit::timedItems),
         TimedEffect.CODEC.listOf().optionalFieldOf("timed_effects", List.of()).forGetter(TurfWarsKit::timedEffects),
         Codec.BOOL.optionalFieldOf("can_enter_enemy_turf", false).forGetter(TurfWarsKit::canEnterEnemyTurf),
@@ -40,8 +39,8 @@ public record TurfWarsKit(
         Codec.BOOL.optionalFieldOf("can_build_in_enemy_turf", false).forGetter(TurfWarsKit::canBuildInEnemyTurf)
     ).apply(instance, TurfWarsKit::new));
 
-    public MutableText getName() {
-        return Text.translatable("turfwars.kit." + id);
+    public MutableComponent getName() {
+        return Component.translatable("turfwars.kit." + id);
     }
 
     public List<TimedEffect> timedEffects(TurfWarsTeam team) {
@@ -56,17 +55,17 @@ public record TurfWarsKit(
     public void giveKit(LivingEntity entity, int color) {
         giveEquipment(entity, color);
 
-        if (entity instanceof ServerPlayerEntity player) {
+        if (entity instanceof ServerPlayer player) {
             giveItems(player);
         } else {
-            for (ItemStack item : items) {
-                if (entity.getStackInHand(Hand.MAIN_HAND).isEmpty()) {
-                    entity.equipStack(EquipmentSlot.MAINHAND, ItemStackBuilder.of(item).setDyeColor(color).build());
+            for (ItemStackTemplate item : items) {
+                if (entity.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+                    entity.setItemSlot(EquipmentSlot.MAINHAND, ItemStackBuilder.of(item.create()).setDyeColor(color).build());
                     continue;
                 }
 
-                if (entity.getStackInHand(Hand.OFF_HAND).isEmpty()) {
-                    entity.equipStack(EquipmentSlot.OFFHAND, ItemStackBuilder.of(item).setDyeColor(color).build());
+                if (entity.getItemInHand(InteractionHand.OFF_HAND).isEmpty()) {
+                    entity.setItemSlot(EquipmentSlot.OFFHAND, ItemStackBuilder.of(item.create()).setDyeColor(color).build());
                     break;
                 }
             }
@@ -74,15 +73,15 @@ public record TurfWarsKit(
     }
 
     public void giveEquipment(LivingEntity entity, int color) {
-        for (Map.Entry<EquipmentSlot, ItemStack> equipment : equipment.entrySet()) {
-            entity.equipStack(equipment.getKey(), ItemStackBuilder.of(equipment.getValue()).setDyeColor(color).build());
+        for (Map.Entry<EquipmentSlot, ItemStackTemplate> equipment : equipment.entrySet()) {
+            entity.setItemSlot(equipment.getKey(), ItemStackBuilder.of(equipment.getValue().create()).setDyeColor(color).build());
         }
     }
 
-    public void giveItems(ServerPlayerEntity player) {
-        for (ItemStack stack : items) {
-            int slot = TurfWarsPlayerDataStorage.get(player).getPreferredKitItemSlots(KitRegistry.getKitId(this)).getSlot(stack.getItem());
-            player.getInventory().insertStack(slot, stack.copy());
+    public void giveItems(ServerPlayer player) {
+        for (ItemStackTemplate stack : items) {
+            int slot = TurfWarsPlayerDataStorage.get(player).getPreferredKitItemSlots(KitRegistry.getKitId(this)).getSlot(stack.item().value());
+            player.getInventory().add(slot, stack.create());
         }
     }
 }

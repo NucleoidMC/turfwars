@@ -3,22 +3,22 @@ package xyz.uninenville.turfwars.kit;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.util.dynamic.Codecs;
+import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.effect.MobEffectInstance;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public record TimedEffect(
-    StatusEffectInstance statusEffect,
+    MobEffectInstance statusEffect,
     int initialTime,
     int renewalTime,
     Either<String, List<String>> regionMarker,
     boolean removeOnRegionLeave
 ) {
     public static final Codec<TimedEffect> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-        StatusEffectInstance.CODEC.fieldOf("status_effect").forGetter(TimedEffect::statusEffect),
-        Codecs.NON_NEGATIVE_INT.fieldOf("initial_time").forGetter(TimedEffect::initialTime),
+        MobEffectInstance.CODEC.fieldOf("status_effect").forGetter(TimedEffect::statusEffect),
+        ExtraCodecs.NON_NEGATIVE_INT.fieldOf("initial_time").forGetter(TimedEffect::initialTime),
         Codec.INT.optionalFieldOf("renewal_time", -1).forGetter(TimedEffect::renewalTime),
         Codec.either(Codec.STRING, Codec.STRING.listOf()).optionalFieldOf("region_marker", Either.left("play_area")).forGetter(TimedEffect::regionMarker),
         Codec.BOOL.optionalFieldOf("remove_on_region_leave", true).forGetter(TimedEffect::removeOnRegionLeave)

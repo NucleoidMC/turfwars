@@ -1,12 +1,12 @@
 package xyz.uninenville.turfwars.game;
 
-import net.minecraft.block.Block;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.PositionFlag;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Relative;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -32,7 +32,7 @@ public class TurfWarsParticipant {
     public int killstreak = 0;
     public int deaths = 0;
     public long deathTime = 0;
-    ServerPlayerEntity lastAttacker;
+    ServerPlayer lastAttacker;
     long lastAttack = 0;
 
     public TurfWarsParticipant(GameSpace gameSpace, PlayerRef playerRef, TurfWarsTeam team, TurfWarsGame game) {
@@ -57,20 +57,20 @@ public class TurfWarsParticipant {
 
     public void tick() {
         playerRef.ifOnline(gameSpace, player -> {
-            var playerPos = player.getBlockPos();
+            var playerPos = player.blockPosition();
             var gamePhase = game.getPhase();
 
             if (!player.isSpectator()) {
                 // Prevent player from moving if game is starting and map doesn't allow moving during game start phase
                 if (gamePhase.isGameStartPhase() && !game.map.canMoveDuringStartingPhase()) {
-                    player.teleport(spawn.world(), spawn.x(), spawn.y(), spawn.z(), PositionFlag.ROT, 0, 0, false);
+                    player.teleportTo(spawn.world(), spawn.x(), spawn.y(), spawn.z(), Relative.ROTATION, 0, 0, false);
                     return;
                 }
 
                 BlockBounds playArea = game.map.getRegion(TurfWarsMap.PLAY_AREA);
                 if (!playArea.contains(playerPos)) {
-                    player.damage(player.getEntityWorld(), playArea.centerBottom().getY() >= player.getEntityPos().getY() ?
-                        player.getDamageSources().outOfWorld() : player.getDamageSources().outsideBorder(), Float.MAX_VALUE);
+                    player.hurtServer(player.level(), playArea.centerBottom().y() >= player.position().y() ?
+                        player.damageSources().fellOutOfWorld() : player.damageSources().outOfBorder(), Float.MAX_VALUE);
                 } else if (!gamePhase.isGameEndPhase()
                     && ((game.map.getRegion(team.isBlue() ? TurfWarsMap.RED_AREA : TurfWarsMap.BLUE_AREA).contains(playerPos)
                     && (gamePhase.isBuildPhase() || !kit.canEnterEnemyTurf()))
@@ -80,11 +80,11 @@ public class TurfWarsParticipant {
                     double yawRad = Math.toRadians(getTeam().isBlue() ? -90 : 90);
 
                     double horizontal = -Math.cos(pitchRad);
-                    player.setVelocity(new Vec3d(
+                    player.setDeltaMovement(new Vec3(
                         Math.sin(yawRad) * horizontal, Math.sin(pitchRad), -Math.cos(yawRad) * horizontal
-                    ).multiply(1.5));
-                    player.networkHandler.sendPacket(new EntityVelocityUpdateS2CPacket(player));
-                    player.velocityDirty = true;
+                    ).scale(1.5));
+                    player.connection.send(new ClientboundSetEntityMotionPacket(player));
+                    player.needsSync = true;
                 }
             } else if (gamePhase.isGameStartPhase() || deathTime + game.config.game().respawnDelay() + 1 <= game.gameSpace.getTime()) {
                 spawn();
@@ -94,16 +94,16 @@ public class TurfWarsParticipant {
 
     public void spawn() {
         playerRef.ifOnline(gameSpace, player -> {
-            player.extinguish();
+            player.clearFire();
             player.fallDistance = 0F;
-            player.clearStatusEffects();
-            player.getInventory().clear();
-            player.setVelocity(Vec3d.ZERO);
+            player.removeAllEffects();
+            player.getInventory().clearContent();
+            player.setDeltaMovement(Vec3.ZERO);
             player.setHealth(player.getMaxHealth());
-            player.getHungerManager().setFoodLevel(20);
-            player.getHungerManager().setSaturationLevel(5);
-            player.changeGameMode(GameMode.SURVIVAL);
-            player.teleport(spawn.world(), spawn.x(), spawn.y(), spawn.z(), Set.of(), spawn.yaw(), spawn.pitch(), false);
+            player.getFoodData().setFoodLevel(20);
+            player.getFoodData().setSaturation(5);
+            player.setGameMode(GameType.SURVIVAL);
+            player.teleportTo(spawn.world(), spawn.x(), spawn.y(), spawn.z(), Set.of(), spawn.yaw(), spawn.pitch(), false);
         });
 
         giveKit();
@@ -122,11 +122,11 @@ public class TurfWarsParticipant {
     public void giveBuildBlocks(int maxAmount) {
         playerRef.ifOnline(gameSpace, player -> {
             Block block = getTeam().getBuildBlocks().getFirst();
-            int count = InventoryUtil.countItems(player, block.asItem().getDefaultStack());
+            int count = InventoryUtil.countItems(player, block.asItem().getDefaultInstance());
             int giveCount = count == 0 ? maxAmount : maxAmount - count;
 
             if (giveCount > 0) {
-                player.giveItemStack(ItemStackBuilder.of(block).setCount(giveCount).build());
+                player.addItem(ItemStackBuilder.of(block).setCount(giveCount).build());
             }
         });
     }
@@ -141,7 +141,7 @@ public class TurfWarsParticipant {
         killstreak = 0;
         lastAttacker = null;
         deathTime = game.gameSpace.getTime();
-        playerRef.ifOnline(gameSpace, LivingEntity::stopUsingItem);
+        playerRef.ifOnline(gameSpace, LivingEntity::releaseUsingItem);
     }
 
     public TurfWarsTeam getTeam() {
@@ -154,11 +154,11 @@ public class TurfWarsParticipant {
     }
 
     @Nullable
-    public ServerPlayerEntity getLastAttacker() {
+    public ServerPlayer getLastAttacker() {
         return game.gameSpace.getTime() - lastAttack < 100 ? lastAttacker : null;
     }
 
-    public void setLastAttacker(ServerPlayerEntity attacker) {
+    public void setLastAttacker(ServerPlayer attacker) {
         this.lastAttacker = attacker;
         this.lastAttack = game.gameSpace.getTime();
     }
@@ -195,9 +195,9 @@ public class TurfWarsParticipant {
         setKit(kit);
 
         playerRef.ifOnline(gameSpace, player -> {
-            int currentWoolAmount = InventoryUtil.countItems(player, getTeam().getBuildBlocks().getFirst().asItem().getDefaultStack());
+            int currentWoolAmount = InventoryUtil.countItems(player, getTeam().getBuildBlocks().getFirst().asItem().getDefaultInstance());
             int respawnWoolAmount = game.config.game().respawnWoolAmount();
-            player.getInventory().clear();
+            player.getInventory().clearContent();
 
             giveKit();
             giveBuildBlocks(Math.max(currentWoolAmount, respawnWoolAmount));

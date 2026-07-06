@@ -3,8 +3,8 @@ package xyz.uninenville.turfwars.config;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.RandomSource;
 import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamList;
@@ -43,6 +43,6 @@ public record TurfWarsConfig(
     }
 
     public Identifier getRandomMap() {
-        return maps.get(Random.create().nextInt(maps().size()));
+        return maps.get(RandomSource.create().nextInt(maps().size()));
     }
 }

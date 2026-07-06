@@ -3,8 +3,8 @@ package xyz.uninenville.turfwars.game;
 import eu.pb4.playerdata.api.PlayerDataApi;
 import eu.pb4.playerdata.api.storage.JsonDataStorage;
 import eu.pb4.playerdata.api.storage.PlayerDataStorage;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import xyz.uninenville.turfwars.kit.KitRegistry;
 import xyz.uninenville.turfwars.kit.PreferredItemSlots;
 import xyz.uninenville.turfwars.kit.TurfWarsKit;
@@ -19,7 +19,7 @@ public class TurfWarsPlayerDataStorage {
         PlayerDataApi.register(STORAGE);
     }
 
-    public static TurfWarsPlayerData get(ServerPlayerEntity player) {
+    public static TurfWarsPlayerData get(ServerPlayer player) {
         var data = PlayerDataApi.getCustomDataFor(player, STORAGE);
         if (data == null) {
             data = new TurfWarsPlayerData();
@@ -29,7 +29,7 @@ public class TurfWarsPlayerDataStorage {
         return data;
     }
 
-    public static void set(ServerPlayerEntity player, TurfWarsPlayerData data) {
+    public static void set(ServerPlayer player, TurfWarsPlayerData data) {
         PlayerDataApi.setCustomDataFor(player, STORAGE, data);
     }
 

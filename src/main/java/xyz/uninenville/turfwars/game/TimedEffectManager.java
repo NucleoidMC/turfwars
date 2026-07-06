@@ -1,8 +1,8 @@
 package xyz.uninenville.turfwars.game;
 
 import com.google.common.collect.Maps;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -41,14 +41,14 @@ public class TimedEffectManager {
 
         for (var playerRef : entries.keySet()) {
             playerRef.ifOnline(gameSpace, player -> {
-                var playerPos = player.getBlockPos();
+                var playerPos = player.blockPosition();
 
                 for (var entry : entries.get(playerRef).entrySet()) {
                     var timedEffect = entry.getKey();
                     boolean isInsideRegion = regions.entrySet().stream().anyMatch(region ->
                         timedEffect.getRegions().contains(region.getKey()) && region.getValue().contains(playerPos));
 
-                    if (player.getGameMode().isSurvivalLike() && isInsideRegion) {
+                    if (player.gameMode().isSurvival() && isInsideRegion) {
                         entry.getValue().tick();
 
                         if (shouldGiveEffect(entry)) {
@@ -79,12 +79,12 @@ public class TimedEffectManager {
         return entry.getValue().active && entry.getKey().removeOnRegionLeave();
     }
 
-    private void giveEffect(ServerPlayerEntity player, TimedEffect timedEffect) {
-        player.addStatusEffect(new StatusEffectInstance(timedEffect.statusEffect()));
+    private void giveEffect(ServerPlayer player, TimedEffect timedEffect) {
+        player.addEffect(new MobEffectInstance(timedEffect.statusEffect()));
     }
 
-    private void removeEffect(ServerPlayerEntity player, TimedEffect timedEffect) {
-        player.removeStatusEffect(timedEffect.statusEffect().getEffectType());
+    private void removeEffect(ServerPlayer player, TimedEffect timedEffect) {
+        player.removeEffect(timedEffect.statusEffect().getEffect());
     }
 
     public void resetEffectGiveTimes(PlayerRef playerRef) {

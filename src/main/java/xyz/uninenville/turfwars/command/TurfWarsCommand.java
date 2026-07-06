@@ -5,13 +5,14 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
-import me.lucko.fabric.api.permissions.v0.Permissions;
-import net.minecraft.command.CommandSource;
-import net.minecraft.command.argument.IdentifierArgumentType;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
+import net.fabricmc.fabric.api.permission.v1.PermissionPredicates;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.IdentifierArgument;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.PermissionLevel;
 import xyz.nucleoid.plasmid.api.game.GameAttachment;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
 import xyz.nucleoid.plasmid.api.game.GameSpaceManager;
@@ -28,65 +29,65 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static net.minecraft.server.command.CommandManager.argument;
-import static net.minecraft.server.command.CommandManager.literal;
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
 
 public class TurfWarsCommand {
-    private static final SuggestionProvider<ServerCommandSource> MAP_SUGGESTION_PROVIDER = (ctx, builder) -> {
-        GameSpace gameSpace = GameSpaceManager.get().byWorld(ctx.getSource().getWorld());
+    private static final SuggestionProvider<CommandSourceStack> MAP_SUGGESTION_PROVIDER = (ctx, builder) -> {
+        GameSpace gameSpace = GameSpaceManager.get().byLevel(ctx.getSource().getLevel());
         List<Identifier> maps = new ArrayList<>();
         if (gameSpace != null) {
             TurfWarsConfig config = (TurfWarsConfig) gameSpace.getMetadata().sourceConfig().value().config();
             maps.addAll(config.maps());
         }
 
-        return CommandSource.suggestIdentifiers(maps, builder);
+        return SharedSuggestionProvider.suggestResource(maps, builder);
     };
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(literal("turfwars")
             .requires(TurfWarsCommand::isSourceInTurfWarsGame)
             .then(literal("team")
-                .requires(ServerCommandSource::isExecutedByPlayer)
+                .requires(CommandSourceStack::isPlayer)
                 .requires(TurfWarsCommand::isGameActive)
                 .then(literal("switch")
-                    .executes(ctx -> switchTeam(ctx, ctx.getSource().getPlayerOrThrow()))
+                    .executes(ctx -> switchTeam(ctx, ctx.getSource().getPlayerOrException()))
                 )
             )
             .then(literal("kit")
-                .requires(ServerCommandSource::isExecutedByPlayer)
+                .requires(CommandSourceStack::isPlayer)
                 .then(literal("select")
-                    .requires(Permissions.require("turfwars.command.kit.select", 2))
-                    .then(argument("id", IdentifierArgumentType.identifier())
-                        .suggests((ctx, builder) -> CommandSource.suggestIdentifiers(KitRegistry.getKitIdentifiers(), builder))
-                        .executes(ctx -> selectKit(ctx, IdentifierArgumentType.getIdentifier(ctx, "id")))
+                    .requires(PermissionPredicates.require(TurfWars.id("turfwars.command.kit.select"), PermissionLevel.GAMEMASTERS))
+                    .then(argument("id", IdentifierArgument.id())
+                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggestResource(KitRegistry.getKitIdentifiers(), builder))
+                        .executes(ctx -> selectKit(ctx, IdentifierArgument.getId(ctx, "id")))
                     )
                 )
             )
             .then(literal("map")
                 .requires(TurfWarsCommand::isGameWaiting)
                 .then(literal("vote")
-                    .requires(ServerCommandSource::isExecutedByPlayer)
+                    .requires(CommandSourceStack::isPlayer)
                     .requires(TurfWarsCommand::canMapsBeVoted)
-                    .then(argument("id", IdentifierArgumentType.identifier())
+                    .then(argument("id", IdentifierArgument.id())
                         .suggests(MAP_SUGGESTION_PROVIDER)
-                        .executes(ctx -> voteForMap(ctx.getSource().getPlayerOrThrow(), IdentifierArgumentType.getIdentifier(ctx, "id")))
+                        .executes(ctx -> voteForMap(ctx.getSource().getPlayerOrException(), IdentifierArgument.getId(ctx, "id")))
                     )
                 )
                 .then(literal("select")
-                    .requires(Permissions.require("turfwars.command.map.select", 2))
-                    .then(argument("id", IdentifierArgumentType.identifier())
+                    .requires(PermissionPredicates.require(TurfWars.id("turfwars.command.map.select"), PermissionLevel.GAMEMASTERS))
+                    .then(argument("id", IdentifierArgument.id())
                         .suggests(MAP_SUGGESTION_PROVIDER)
-                        .executes(ctx -> selectMap(ctx, IdentifierArgumentType.getIdentifier(ctx, "id")))
+                        .executes(ctx -> selectMap(ctx, IdentifierArgument.getId(ctx, "id")))
                     )
                 )
             )
             .then(literal("phase")
                 .requires(TurfWarsCommand::isGameActive)
-                .requires(Permissions.require("turfwars.command.phase", 2))
+                .requires(PermissionPredicates.require(TurfWars.id("turfwars.command.phase"), PermissionLevel.GAMEMASTERS))
                 .then(literal("set")
                     .then(argument("phase", StringArgumentType.word())
-                        .suggests((ctx, builder) -> CommandSource.suggestMatching(Arrays.stream(TurfWarsPhase.values()).map(Enum::toString), builder))
+                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(Arrays.stream(TurfWarsPhase.values()).map(Enum::toString), builder))
                         .executes(TurfWarsCommand::setNextPhase)
                     )
                 )
@@ -97,8 +98,8 @@ public class TurfWarsCommand {
         );
     }
 
-    private static boolean isSourceInTurfWarsGame(ServerCommandSource source) {
-        GameSpace gameSpace = GameSpaceManager.get().byWorld(source.getWorld());
+    private static boolean isSourceInTurfWarsGame(CommandSourceStack source) {
+        GameSpace gameSpace = GameSpaceManager.get().byLevel(source.getLevel());
         if (gameSpace != null) {
             return gameSpace.getMetadata().sourceConfig().value().type() == GameType.get(TurfWars.id(TurfWars.MOD_ID));
         }
@@ -106,8 +107,8 @@ public class TurfWarsCommand {
         return false;
     }
 
-    private static <T> T getAttachment(ServerWorld world, GameAttachment<T> attachment) {
-        GameSpace gameSpace = GameSpaceManager.get().byWorld(world);
+    private static <T> T getAttachment(ServerLevel level, GameAttachment<T> attachment) {
+        GameSpace gameSpace = GameSpaceManager.get().byLevel(level);
         if (gameSpace != null) {
             return gameSpace.getAttachment(attachment);
         }
@@ -115,16 +116,16 @@ public class TurfWarsCommand {
         return null;
     }
 
-    private static boolean isGameWaiting(ServerCommandSource source) {
-        return getAttachment(source.getWorld(), TurfWars.WAITING) != null;
+    private static boolean isGameWaiting(CommandSourceStack source) {
+        return getAttachment(source.getLevel(), TurfWars.WAITING) != null;
     }
 
-    private static boolean isGameActive(ServerCommandSource source) {
-        return getAttachment(source.getWorld(), TurfWars.GAME) != null;
+    private static boolean isGameActive(CommandSourceStack source) {
+        return getAttachment(source.getLevel(), TurfWars.GAME) != null;
     }
 
-    private static int switchTeam(CommandContext<ServerCommandSource> ctx, ServerPlayerEntity player) {
-        TurfWarsGame game = getAttachment(ctx.getSource().getWorld(), TurfWars.GAME);
+    private static int switchTeam(CommandContext<CommandSourceStack> ctx, ServerPlayer player) {
+        TurfWarsGame game = getAttachment(ctx.getSource().getLevel(), TurfWars.GAME);
         if (game != null) {
             game.trySwitchTeamFor(player, true);
         }
@@ -132,8 +133,8 @@ public class TurfWarsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int selectKit(CommandContext<ServerCommandSource> ctx, Identifier id) {
-        TurfWarsGame game = getAttachment(ctx.getSource().getWorld(), TurfWars.GAME);
+    private static int selectKit(CommandContext<CommandSourceStack> ctx, Identifier id) {
+        TurfWarsGame game = getAttachment(ctx.getSource().getLevel(), TurfWars.GAME);
         TurfWarsKit kit = KitRegistry.getKit(id);
         if (game != null) {
             game.getParticipant(ctx.getSource().getPlayer()).changeKit(kit);
@@ -142,9 +143,9 @@ public class TurfWarsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static boolean canMapsBeVoted(ServerCommandSource source) {
-        GameSpace gameSpace = GameSpaceManager.get().byWorld(source.getWorld());
-        TurfWarsWaiting waiting = getAttachment(source.getWorld(), TurfWars.WAITING);
+    private static boolean canMapsBeVoted(CommandSourceStack source) {
+        GameSpace gameSpace = GameSpaceManager.get().byLevel(source.getLevel());
+        TurfWarsWaiting waiting = getAttachment(source.getLevel(), TurfWars.WAITING);
         if (gameSpace != null && waiting != null) {
             TurfWarsConfig config = (TurfWarsConfig) gameSpace.getMetadata().sourceConfig().value().config();
             return !config.randomMap() && config.maps().size() > 1 && !waiting.isMapSelected();
@@ -153,8 +154,8 @@ public class TurfWarsCommand {
         return false;
     }
 
-    private static int voteForMap(ServerPlayerEntity player, Identifier map) {
-        TurfWarsWaiting waiting = getAttachment(player.getEntityWorld(), TurfWars.WAITING);
+    private static int voteForMap(ServerPlayer player, Identifier map) {
+        TurfWarsWaiting waiting = getAttachment(player.level(), TurfWars.WAITING);
         if (waiting != null) {
             waiting.voteForMap(player, map);
         }
@@ -162,8 +163,8 @@ public class TurfWarsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int selectMap(CommandContext<ServerCommandSource> ctx, Identifier mapId) {
-        TurfWarsWaiting waiting = getAttachment(ctx.getSource().getWorld(), TurfWars.WAITING);
+    private static int selectMap(CommandContext<CommandSourceStack> ctx, Identifier mapId) {
+        TurfWarsWaiting waiting = getAttachment(ctx.getSource().getLevel(), TurfWars.WAITING);
         if (waiting != null) {
             waiting.selectMap(mapId);
         }
@@ -171,8 +172,8 @@ public class TurfWarsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int setNextPhase(CommandContext<ServerCommandSource> ctx) {
-        TurfWarsGame game = getAttachment(ctx.getSource().getWorld(), TurfWars.GAME);
+    private static int setNextPhase(CommandContext<CommandSourceStack> ctx) {
+        TurfWarsGame game = getAttachment(ctx.getSource().getLevel(), TurfWars.GAME);
         TurfWarsPhase phase = TurfWarsPhase.valueOf(StringArgumentType.getString(ctx, "phase"));
         if (game != null) {
             game.setPhase(phase);
@@ -181,8 +182,8 @@ public class TurfWarsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int startNextPhase(CommandContext<ServerCommandSource> ctx) {
-        TurfWarsGame game = getAttachment(ctx.getSource().getWorld(), TurfWars.GAME);
+    private static int startNextPhase(CommandContext<CommandSourceStack> ctx) {
+        TurfWarsGame game = getAttachment(ctx.getSource().getLevel(), TurfWars.GAME);
         if (game != null && !game.getPhase().isGameEndPhase()) {
             game.setPhase(game.getPhase().getNextPhase());
         }

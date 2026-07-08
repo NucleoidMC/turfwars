@@ -1,6 +1,7 @@
 package xyz.uninenville.turfwars.util;
 
 import net.fabricmc.fabric.api.tag.convention.v2.ConventionalBlockTags;
+import net.fabricmc.fabric.api.tag.convention.v2.ConventionalItemTags;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.DyeColor;
@@ -59,9 +60,11 @@ public class ColoredBlockUtil {
     public static ItemStack getStackWithColor(ItemStack stack, DyeColor color) {
         if (stack.getItem() instanceof BlockItem blockItem) {
             stack = stack.transmuteCopy(ColoredBlockUtil.block(blockItem.getBlock(), color).asItem());
+        } else if (stack.is(ConventionalItemTags.DYED)) {
+            stack = ItemStackBuilder.of(stack).setDyeColor(color.getTextureDiffuseColor()).build();
         }
 
-        return ItemStackBuilder.of(stack).setDyeColor(color.getTextureDiffuseColor()).build();
+        return stack;
     }
 
     public static Item getItemWithTeamColor(Item item, TeamManager manager, PlayerRef playerRef) {

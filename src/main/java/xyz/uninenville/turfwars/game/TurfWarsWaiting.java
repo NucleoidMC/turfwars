@@ -132,7 +132,7 @@ public class TurfWarsWaiting {
 
     private JoinAcceptorResult acceptPlayer(JoinAcceptor offer) {
         PlayerPos spawn = map.getRandomSpawn();
-        return offer.teleport(level, new Vec3(spawn.x(), spawn.y(), spawn.z()), spawn.yaw(), spawn.pitch()) //fixme level null?
+        return offer.teleport(level, new Vec3(spawn.x(), spawn.y(), spawn.z()), spawn.yaw(), spawn.pitch())
             .thenRunForEach(player -> player.setGameMode(GameType.ADVENTURE));
     }
 

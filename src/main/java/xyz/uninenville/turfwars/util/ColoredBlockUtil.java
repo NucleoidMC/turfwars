@@ -8,10 +8,10 @@ import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import xyz.nucleoid.plasmid.api.game.common.team.GameTeamKey;
 import xyz.nucleoid.plasmid.api.game.common.team.TeamManager;
-import xyz.nucleoid.plasmid.api.util.ColoredBlocks;
 import xyz.nucleoid.plasmid.api.util.ItemStackBuilder;
 import xyz.nucleoid.plasmid.api.util.PlayerRef;
 
@@ -23,31 +23,31 @@ public class ColoredBlockUtil {
 
     public static Block block(BlockState blockState, DyeColor color) {
         if (blockState.is(BlockTags.WOOL)) {
-            return ColoredBlocks.wool(color);
+            return Blocks.WOOL.pick(color);
         } else if (blockState.is(BlockTags.WOOL_CARPETS)) {
-            return ColoredBlocks.carpet(color);
+            return Blocks.CARPET.pick(color);
         } else if (blockState.is(BlockTags.TERRACOTTA)) {
-            return ColoredBlocks.terracotta(color);
+            return Blocks.DYED_TERRACOTTA.pick(color);
         } else if (blockState.is(ConventionalBlockTags.GLAZED_TERRACOTTAS)) {
-            return ColoredBlocks.glazedTerracotta(color);
+            return Blocks.GLAZED_TERRACOTTA.pick(color);
         } else if (blockState.is(ConventionalBlockTags.CONCRETES)) {
-            return ColoredBlocks.concrete(color);
-        } else if (blockState.is(BlockTags.CONCRETE_POWDER)) {
-            return ColoredBlocks.concretePowder(color);
+            return Blocks.CONCRETE.pick(color);
+        } else if (blockState.is(BlockTags.CONCRETE_POWDERS)) {
+            return Blocks.CONCRETE_POWDER.pick(color);
         } else if (blockState.is(ConventionalBlockTags.GLASS_BLOCKS_CHEAP)) {
-            return ColoredBlocks.glass(color);
+            return Blocks.STAINED_GLASS.pick(color);
         } else if (blockState.is(ConventionalBlockTags.GLASS_PANES)) {
-            return ColoredBlocks.glassPane(color);
+            return Blocks.STAINED_GLASS_PANE.pick(color);
         } else if (blockState.is(BlockTags.BEDS)) {
-            return ColoredBlocks.bed(color);
+            return Blocks.BED.pick(color);
         } else if (blockState.is(BlockTags.BANNERS)) {
-            return ColoredBlocks.banner(color);
+            return Blocks.BANNER.pick(color);
         } else if (blockState.is(BlockTags.SHULKER_BOXES)) {
-            return ColoredBlocks.shulkerBox(color);
+            return Blocks.DYED_SHULKER_BOX.pick(color);
         } else if (blockState.is(BlockTags.CANDLES)) {
-            return ColoredBlocks.candle(color);
+            return Blocks.DYED_CANDLE.pick(color);
         } else if (blockState.is(BlockTags.CANDLE_CAKES)) {
-            return ColoredBlocks.candleCake(color);
+            return Blocks.DYED_CANDLE_CAKE.pick(color);
         }
 
         return blockState.getBlock();

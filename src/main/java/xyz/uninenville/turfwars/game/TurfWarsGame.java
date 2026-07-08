@@ -69,8 +69,8 @@ import xyz.uninenville.turfwars.TurfWars;
 import xyz.uninenville.turfwars.attachment.ModAttachments;
 import xyz.uninenville.turfwars.config.TurfWarsConfig;
 import xyz.uninenville.turfwars.map.TurfWarsMap;
-import xyz.uninenville.turfwars.mixin.ItemEntityAccessor;
 import xyz.uninenville.turfwars.mixin.AbstractArrowAccessor;
+import xyz.uninenville.turfwars.mixin.ItemEntityAccessor;
 import xyz.uninenville.turfwars.util.ColoredBlockUtil;
 
 import java.util.List;
@@ -188,7 +188,7 @@ public class TurfWarsGame {
             }
         }
 
-        player.level().getServer().getCommands().sendCommands(player);
+        level.getServer().getCommands().sendCommands(player);
         sidebar.addPlayer(player);
     }
 
@@ -198,7 +198,7 @@ public class TurfWarsGame {
     }
 
     private void removePlayer(ServerPlayer player) {
-        player.level().getServer().getCommands().sendCommands(player);
+        level.getServer().getCommands().sendCommands(player);
         sidebar.removePlayer(player);
     }
 
@@ -552,7 +552,7 @@ public class TurfWarsGame {
 
         oppositeTeam.getTurf().iterator().forEachRemaining(pos -> {
             BlockState block = level.getBlockState(pos);
-            Vec3 centerPos = pos.getCenter();
+            Vec3 centerPos = Vec3.atCenterOf(pos);
 
             if (team.getBuildBlocks().contains(block.getBlock())) {
                 level.removeBlock(pos, false);

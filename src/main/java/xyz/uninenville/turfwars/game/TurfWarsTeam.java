@@ -69,14 +69,14 @@ public class TurfWarsTeam {
 
                 bounds.iterator().forEachRemaining(pos -> {
                     if (level.getBlockState(pos.below()).isCollisionShapeFullBlock(level, pos.below()) && level.isEmptyBlock(pos) && level.isEmptyBlock(pos.above())) {
-                        Vec3 spawn = pos.getBottomCenter();
+                        Vec3 spawn = Vec3.atBottomCenterOf(pos);
                         spawnPositions.add(new PlayerPos(level, spawn.x(), spawn.y(), spawn.z(), rotation.x, rotation.y));
                     }
                 });
             }
 
             // Initialize build and floor blocks
-            this.buildBlocks = map.getBlocksAt(isBlue() ? BLUE_AREA : RED_AREA, BUILD_BLOCKS_KEY, isBlue() ? List.of(Blocks.BLUE_WOOL) : List.of(Blocks.RED_WOOL)).stream().map(BlockBehaviour.BlockStateBase::getBlock).toList();
+            this.buildBlocks = map.getBlocksAt(isBlue() ? BLUE_AREA : RED_AREA, BUILD_BLOCKS_KEY, isBlue() ? List.of(Blocks.WOOL.pick(DyeColor.BLUE)) : List.of(Blocks.WOOL.pick(DyeColor.RED))).stream().map(BlockBehaviour.BlockStateBase::getBlock).toList();
             this.floorBlocks = map.getBlocksAt(isBlue() ? BLUE_AREA : RED_AREA, FLOOR_BLOCKS_KEY, List.of());
         });
 

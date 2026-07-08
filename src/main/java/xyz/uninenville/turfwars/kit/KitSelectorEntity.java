@@ -8,7 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Player;
@@ -21,14 +21,16 @@ public class KitSelectorEntity extends ArmorStand {
     private final TurfWarsKit kit;
 
     public KitSelectorEntity(TurfWarsGame game, ServerLevel level, Vec3 position, KitSelector kitSelector, int color) {
-        super(EntityType.ARMOR_STAND, level);
+        super(EntityTypes.ARMOR_STAND, level);
 
         this.game = game;
         this.kit = kitSelector.getKit();
 
-        if (kit != null) {
-            kit.giveKit(this, color);
+        if (kit == null) {
+            return;
         }
+
+        kit.giveKit(this, color);
         snapTo(position, kitSelector.rotation(), 0);
         setNoBasePlate(true);
         setShowArms(true);

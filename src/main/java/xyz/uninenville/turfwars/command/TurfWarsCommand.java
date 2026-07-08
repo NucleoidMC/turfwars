@@ -99,18 +99,22 @@ public class TurfWarsCommand {
     }
 
     private static boolean isSourceInTurfWarsGame(CommandSourceStack source) {
-        GameSpace gameSpace = GameSpaceManager.get().byLevel(source.getLevel());
-        if (gameSpace != null) {
-            return gameSpace.getMetadata().sourceConfig().value().type() == GameType.get(TurfWars.id(TurfWars.MOD_ID));
+        if (source.getLevel() != null) {
+            GameSpace gameSpace = GameSpaceManager.get().byLevel(source.getLevel());
+            if (gameSpace != null) {
+                return gameSpace.getMetadata().sourceConfig().value().type() == GameType.get(TurfWars.id(TurfWars.MOD_ID));
+            }
         }
 
         return false;
     }
 
     private static <T> T getAttachment(ServerLevel level, GameAttachment<T> attachment) {
-        GameSpace gameSpace = GameSpaceManager.get().byLevel(level);
-        if (gameSpace != null) {
-            return gameSpace.getAttachment(attachment);
+        if (level != null) {
+            GameSpace gameSpace = GameSpaceManager.get().byLevel(level);
+            if (gameSpace != null) {
+                return gameSpace.getAttachment(attachment);
+            }
         }
 
         return null;

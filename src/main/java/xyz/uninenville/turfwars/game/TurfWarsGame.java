@@ -534,8 +534,9 @@ public class TurfWarsGame {
         player.setGameMode(GameType.SPECTATOR);
         participant.onDeath();
 
-        moveTurfLine(attacker, team, turfLinesConquered);
         gameSpace.getPlayers().sendMessage(message);
+
+        moveTurfLine(attacker, team, turfLinesConquered);
 
         return EventResult.DENY;
     }

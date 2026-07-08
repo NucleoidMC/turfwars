@@ -29,6 +29,7 @@
   "turfwars.kit.infiltrator": "Infiltrator",
   "turfwars.kit.shredder": "Shredder",
   "turfwars.death.generic": "\uD83D\uDDE1 %s died",
+  "turfwars.death.genericKill": "\uD83D\uDDE1 %s was killed",
   "turfwars.death.player.player": "\uD83D\uDDE1 %s killed %s",
   "turfwars.death.outOfWorld.player": "\uD83D\uDDE1 %s knocked %s off the map",
   "turfwars.death.outsideBorder.player": "\uD83D\uDDE1 %s threw %s off the map",

@@ -22,10 +22,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
-import net.minecraft.world.item.ArrowItem;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.GameType;
@@ -52,7 +49,6 @@ import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.api.game.stats.GameStatisticBundle;
 import xyz.nucleoid.plasmid.api.game.stats.StatisticMap;
-import xyz.nucleoid.plasmid.api.util.ColoredItems;
 import xyz.nucleoid.plasmid.api.util.PlayerPos;
 import xyz.nucleoid.plasmid.api.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.EventResult;
@@ -341,6 +337,10 @@ public class TurfWarsGame {
     }
 
     private EventResult onBlockPlace(ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state, UseOnContext context) {
+        if (!isParticipant(player)) {
+            return EventResult.PASS;
+        }
+
         TurfWarsTeam team = getTeamInControlOf(pos);
         boolean isOwnTurf = getTeam(player).getTurf().contains(pos);
         boolean canBuildInEnemyTurf = getParticipant(player).getKit().canBuildInEnemyTurf();
@@ -372,6 +372,10 @@ public class TurfWarsGame {
     }
 
     private EventResult onBlockBreak(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (!isParticipant(player)) {
+            return EventResult.PASS;
+        }
+
         TurfWarsTeam team = getTeamInControlOf(pos);
         boolean isOwnTurf = getTeam(player).getTurf().contains(pos);
         boolean canBreakEnemyForts = getParticipant(player).getKit().canBreakEnemyForts();
@@ -405,7 +409,7 @@ public class TurfWarsGame {
     }
 
     private EventResult onPlayerDamage(ServerPlayer player, DamageSource source, float amount) {
-        if (!phase.isGameEndPhase()) {
+        if (isParticipant(player) && !phase.isGameEndPhase()) {
             if (source.getEntity() != null && source.getEntity() instanceof ServerPlayer attacker) {
                 TurfWarsParticipant participant = getParticipant(player);
 
@@ -423,7 +427,7 @@ public class TurfWarsGame {
     private EventResult onPlayerAttack(ServerPlayer player, InteractionHand hand, Entity entity, EntityHitResult entityHitResult) {
         if (phase.isCombatPhase()) {
             return EventResult.PASS;
-        } else if (entity instanceof ServerPlayer p && getTeam(player) != getTeam(p)) {
+        } else if (entity instanceof ServerPlayer p && isParticipant(player) && isParticipant(p) && getTeam(player) != getTeam(p)) {
             player.sendSystemMessage(Component.translatable("turfwars.game.error.can_only_attack_during_combat"));
         }
 
@@ -449,8 +453,8 @@ public class TurfWarsGame {
     }
 
     private EventResult onProjectileHitEntity(Projectile entity, EntityHitResult entityHitResult) {
-        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayer attacker) {
-            if (entityHitResult.getEntity() instanceof ServerPlayer target) {
+        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayer attacker && isParticipant(attacker)) {
+            if (entityHitResult.getEntity() instanceof ServerPlayer target && isParticipant(target)) {
                 if (teamManager.teamFor(attacker) != teamManager.teamFor(target)) {
                     if (entity.is(EntityTypeTags.ARROWS)) {
                         statistics.forPlayer(attacker).increment(StatisticKeys.ARROWS_HIT, 1);
@@ -466,7 +470,7 @@ public class TurfWarsGame {
         BlockPos blockPos = hitResult.getBlockPos();
         Block block = level.getBlockState(blockPos).getBlock();
 
-        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayer player) {
+        if (!phase.isGameEndPhase() && entity.getOwner() instanceof ServerPlayer player && isParticipant(player)) {
             TurfWarsTeam team = getTeam(player);
             TurfWarsTeam oppositeTeam = team.getOppositeTeam();
 
@@ -495,6 +499,10 @@ public class TurfWarsGame {
     }
 
     public EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
+        if (!isParticipant(player)) {
+            return EventResult.PASS;
+        }
+
         TurfWarsParticipant participant = getParticipant(player);
         TurfWarsTeam team = participant.getTeam();
 
@@ -524,7 +532,7 @@ public class TurfWarsGame {
 
         // Spawn death "particles"
         for (int i = 0; i < 5; i++) {
-            var entity = new ItemEntity(level, player.getX(), player.getY(), player.getZ(), ColoredItems.dye(team.getDyeColor()).getDefaultInstance());
+            var entity = new ItemEntity(level, player.getX(), player.getY(), player.getZ(), Items.DYE.pick(team.getDyeColor()).getDefaultInstance());
             ((ItemEntityAccessor) entity).setAge(5980);
             entity.setNeverPickUp();
             level.addFreshEntity(entity);
@@ -581,7 +589,7 @@ public class TurfWarsGame {
         if (team.getScore() == 0) {
             for (PlayerRef ref : participants.keySet()) {
                 ref.ifOnline(gameSpace, player -> {
-                    if (getTeam(player) != team) {
+                    if (participants.get(ref).getTeam() != team) {
                         statistics.forPlayer(player).increment(StatisticKeys.GAMES_WON, 1);
                     } else {
                         statistics.forPlayer(player).increment(StatisticKeys.GAMES_LOST, 1);
@@ -597,7 +605,7 @@ public class TurfWarsGame {
     }
 
     private EventResult onItemPickup(ServerPlayer player, ItemEntity itemEntity, ItemStack itemStack) {
-        if (itemStack.getItem() instanceof BlockItem item) {
+        if (isParticipant(player) && itemStack.getItem() instanceof BlockItem item) {
             List<Block> buildBlocks = getTeam(player).getOppositeTeam().getBuildBlocks();
             Block block = Block.byItem(item);
 
@@ -616,6 +624,10 @@ public class TurfWarsGame {
 
     public Object2ObjectMap<PlayerRef, TurfWarsParticipant> getParticipants() {
         return participants;
+    }
+
+    public boolean isParticipant(ServerPlayer player) {
+        return getParticipant(player) != null;
     }
 
     public TurfWarsParticipant getParticipant(ServerPlayer player) {

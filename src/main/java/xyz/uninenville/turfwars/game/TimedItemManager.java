@@ -47,7 +47,7 @@ public class TimedItemManager {
         for (var playerRef : entries.keySet()) {
             playerRef.ifOnline(gameSpace, player -> {
                 for (var entry : entries.get(playerRef).entrySet()) {
-                    if (hasLessThanThresholdAmount(player, entry)) {
+                    if (!player.isSpectator() && hasLessThanThresholdAmount(player, entry)) {
                         entry.getValue().tick();
 
                         if (shouldGiveItem(entry)) {
